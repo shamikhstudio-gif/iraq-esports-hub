@@ -1,0 +1,37 @@
+{
+  "name": "babylon-network",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -H 0.0.0.0 -p 3000",
+    "build": "next build",
+    "start": "next start -H 0.0.0.0 -p 3000",
+    "lint": "next lint",
+    "cf:dev": "wrangler pages dev",
+    "cf:deploy": "wrangler pages deploy .next"
+  },
+  "dependencies": {
+    "@dotlottie/react-player": "^1.6.19",
+    "@supabase/ssr": "^0.5.2",
+    "@supabase/supabase-js": "^2.112.4",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.475.0",
+    "next": "14.2.24",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "resend": "^4.1.2",
+    "stream-chat": "8.44.0",
+    "stream-chat-react": "11.23.1",
+    "tailwind-merge": "^2.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.24",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "autoprefixer": "^10.4.20",
+    "isomorphic-git": "^1.41.8",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.8.2"
+  }
+}

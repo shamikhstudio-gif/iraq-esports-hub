@@ -1,0 +1,275 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: #000000;
+    --foreground: #f5f5f5;
+    --surface: #000000;
+    --surface-elevated: #1a1a1a;
+    --border: rgba(255, 255, 255, 0.12);
+    --border-hover: rgba(255, 255, 255, 0.2);
+    --text-primary: #f5f5f5;
+    --text-secondary: #a8a8a8;
+    --text-tertiary: #737373;
+    --accent: #0095f6;
+    --accent-hover: #1aa1f7;
+    --danger: #ed4956;
+    --success: #58c322;
+  }
+}
+
+/* ===== Base Styles ===== */
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  direction: rtl;
+  text-align: right;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.01em;
+}
+
+/* ===== Scrollbar — Thin & Subtle ===== */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+.no-scrollbar {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+/* ===== Transitions ===== */
+button, a {
+  transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease, transform 0.1s ease;
+}
+
+input, select, textarea {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+/* ===== Select Reset ===== */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23a8a8a8' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-position: left 0.75rem center;
+  background-repeat: no-repeat;
+  background-size: 1rem 1rem;
+  padding-left: 2.5rem !important;
+  padding-right: 0.75rem !important;
+  cursor: pointer;
+}
+
+/* ========================================================
+   INSTAGRAM-STYLE FLAT DESIGN SYSTEM
+   ======================================================== */
+
+/* --- Card: Flat surface with thin border --- */
+.ig-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  transition: border-color 0.2s ease;
+}
+
+.ig-card:hover {
+  border-color: var(--border-hover);
+}
+
+/* --- Card (old aliases for compatibility) --- */
+.card-clean, .card-3d {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  transition: border-color 0.2s ease;
+}
+
+.card-clean:hover, .card-3d:hover {
+  border-color: var(--border-hover);
+}
+
+/* --- Recessed Input --- */
+.card-recessed, .input-3d {
+  background: #0a0a0a !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-primary) !important;
+  border-radius: 0.5rem;
+}
+
+.input-3d:focus {
+  border-color: var(--accent) !important;
+  box-shadow: none !important;
+  outline: none;
+}
+
+/* --- IG Input --- */
+.ig-input {
+  background: #0a0a0a;
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  border-radius: 0.5rem;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.875rem;
+  font-weight: 400;
+  transition: border-color 0.2s ease;
+}
+
+.ig-input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.ig-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* --- IG Primary Button (Instagram Blue) --- */
+.ig-btn-primary {
+  background: var(--accent) !important;
+  color: #ffffff !important;
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  padding: 0.625rem 1.25rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease, opacity 0.2s ease;
+}
+
+.ig-btn-primary:hover {
+  background: var(--accent-hover) !important;
+}
+
+.ig-btn-primary:active {
+  opacity: 0.85;
+}
+
+.ig-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* --- Old button aliases for compatibility --- */
+.btn-3d-primary {
+  background: var(--accent) !important;
+  color: #ffffff !important;
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 600;
+}
+
+.btn-3d-primary:hover {
+  background: var(--accent-hover) !important;
+  transform: none;
+}
+
+.btn-3d-primary:active {
+  transform: none;
+}
+
+.btn-3d-dark {
+  background: var(--surface-elevated) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}
+
+.btn-3d-dark:hover {
+  background: #222222 !important;
+  border-color: var(--border-hover);
+  transform: none;
+}
+
+.btn-3d-dark:active {
+  transform: none;
+}
+
+/* --- IG Secondary Button (Transparent with border) --- */
+.ig-btn-secondary {
+  background: transparent !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  padding: 0.625rem 1.25rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.ig-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-color: var(--border-hover);
+}
+
+/* --- IG Divider --- */
+.ig-divider {
+  height: 1px;
+  background: var(--border);
+  width: 100%;
+}
+
+/* --- Modal Animation (Clean fade-in) --- */
+@keyframes modalEnter {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.modal-animate {
+  animation: modalEnter 0.2s ease-out forwards;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+}
+
+/* --- Icon filter: makes dark PNG icons white --- */
+.icon-white {
+  filter: brightness(0) invert(1);
+}
+
+/* ===== Stream Chat Overrides ===== */
+.str-chat__theme-dark {
+  --str-chat__background-color: #000000;
+  --str-chat__channel-list-background-color: #000000;
+  --str-chat__primary-color: var(--accent);
+  --str-chat__surface-color: var(--surface-elevated);
+  --str-chat__message-bubble-background-color: var(--surface-elevated);
+  --str-chat__message-bubble-color: var(--text-primary);
+  --str-chat__text-color: var(--text-primary);
+  --str-chat__subtext-color: var(--text-secondary);
+  --str-chat__border-color: var(--border);
+}
