@@ -18,19 +18,53 @@ import {
   ExternalLink,
   Shield,
   RefreshCw,
-  Crown
+  Crown,
+  Zap,
+  ShoppingBag,
+  Save,
+  Gift,
+  Star,
+  Plus,
+  Minus,
+  ArrowUpDown,
+  Coins
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { Profile, Team, Post, SupportTicket } from '@/lib/types';
 
 export default function AdminDashboardPage() {
-  const [activeTab, setActiveTab] = useState<'users' | 'teams' | 'appeals' | 'posts'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'teams' | 'economy' | 'appeals' | 'posts'>('users');
   const [users, setUsers] = useState<Profile[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+
+  // Economy & Pricing State
+  const [storePrices, setStorePrices] = useState({
+    post_boost: 150,
+    ultra_hd: 200,
+    splash_pass: 1500,
+    verified_shield: 3000,
+  });
+  const [vaultConfig, setVaultConfig] = useState({
+    default_reward: 25,
+    ad_duration: 20,
+    cooldown_minutes: 5,
+  });
+  const [dailyConfig, setDailyConfig] = useState({
+    daily_xp: 50,
+    daily_ebits: 20,
+  });
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [settingsNotice, setSettingsNotice] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+
+  // Balance Modifier State
+  const [modifierTargetType, setModifierTargetType] = useState<'user' | 'team'>('user');
+  const [modifierTargetId, setModifierTargetId] = useState('');
+  const [modifierAmount, setModifierAmount] = useState<number>(250);
+  const [isModifyingBalance, setIsModifyingBalance] = useState(false);
 
   // Suspension Dialog State
   const [selectedUserForSuspension, setSelectedUserForSuspension] = useState<Profile | null>(null);
@@ -43,16 +77,126 @@ export default function AdminDashboardPage() {
 
   const fetchAdminData = async () => {
     setIsLoading(true);
-    const { data: usersData } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
-    const { data: teamsData } = await supabase.from('teams').select('*').order('created_at', { ascending: false });
-    const { data: postsData } = await supabase.from('posts').select('*, author:profiles!posts_author_id_fkey(*)').order('created_at', { ascending: false });
-    const { data: ticketsData } = await supabase.from('support_tickets').select('*, user:profiles!support_tickets_user_id_fkey(*)').order('created_at', { ascending: false });
+    const [usersRes, teamsRes, postsRes, ticketsRes, settingsRes] = await Promise.all([
+      supabase.from('profiles').select('*').order('created_at', { ascending: false }),
+      supabase.from('teams').select('*').order('created_at', { ascending: false }),
+      supabase.from('posts').select('*, author:profiles!posts_author_id_fkey(*)').order('created_at', { ascending: false }),
+      supabase.from('support_tickets').select('*, user:profiles!support_tickets_user_id_fkey(*)').order('created_at', { ascending: false }),
+      supabase.from('platform_settings').select('*'),
+    ]);
 
-    if (usersData) setUsers(usersData as Profile[]);
-    if (teamsData) setTeams(teamsData as Team[]);
-    if (postsData) setPosts(postsData as Post[]);
-    if (ticketsData) setTickets(ticketsData as SupportTicket[]);
+    if (usersRes.data) {
+      setUsers(usersRes.data as Profile[]);
+      if (!modifierTargetId && usersRes.data.length > 0) {
+        setModifierTargetId(usersRes.data[0].id);
+      }
+    }
+    if (teamsRes.data) setTeams(teamsRes.data as Team[]);
+    if (postsRes.data) setPosts(postsRes.data as Post[]);
+    if (ticketsRes.data) setTickets(ticketsRes.data as SupportTicket[]);
+
+    if (settingsRes.data) {
+      settingsRes.data.forEach((row: any) => {
+        if (row.key === 'store_prices' && row.value) setStorePrices(prev => ({ ...prev, ...row.value }));
+        if (row.key === 'sponsor_vault_config' && row.value) setVaultConfig(prev => ({ ...prev, ...row.value }));
+        if (row.key === 'daily_rewards_config' && row.value) setDailyConfig(prev => ({ ...prev, ...row.value }));
+      });
+    }
+
     setIsLoading(false);
+  };
+
+  const handleSaveEconomySettings = async () => {
+    setIsSavingSettings(true);
+    setSettingsNotice(null);
+    try {
+      const [p1, p2, p3] = await Promise.all([
+        supabase.from('platform_settings').upsert({
+          key: 'store_prices',
+          value: storePrices,
+          updated_at: new Date().toISOString(),
+        }),
+        supabase.from('platform_settings').upsert({
+          key: 'sponsor_vault_config',
+          value: vaultConfig,
+          updated_at: new Date().toISOString(),
+        }),
+        supabase.from('platform_settings').upsert({
+          key: 'daily_rewards_config',
+          value: dailyConfig,
+          updated_at: new Date().toISOString(),
+        }),
+      ]);
+
+      if (p1.error || p2.error || p3.error) throw new Error('فشل حفظ بعض الإعدادات');
+
+      setSettingsNotice({ type: 'success', msg: 'تم حفظ وتحديث جميع الأسعار ومكافآت الاقتصاد بنجاح!' });
+      setTimeout(() => setSettingsNotice(null), 4000);
+    } catch (err: any) {
+      setSettingsNotice({ type: 'error', msg: err.message || 'حدث خطأ أثناء الحفظ' });
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+
+  const handleAdjustBalance = async (delta: number) => {
+    if (!modifierTargetId) return;
+    setIsModifyingBalance(true);
+    setSettingsNotice(null);
+
+    try {
+      if (modifierTargetType === 'user') {
+        const targetUser = users.find(u => u.id === modifierTargetId);
+        const currentBal = targetUser?.ebits_balance || 0;
+        const newBal = Math.max(0, currentBal + delta);
+
+        const { error } = await supabase
+          .from('profiles')
+          .update({ ebits_balance: newBal })
+          .eq('id', modifierTargetId);
+
+        if (error) throw error;
+
+        // Send notification to user
+        await supabase.from('notifications').insert({
+          user_id: modifierTargetId,
+          type: 'general',
+          title: delta > 0 ? 'شحن رصيد eBits من الإدارة 💎' : 'تعديل رصيد eBits من الإدارة ⚡',
+          description: delta > 0 
+            ? `قامت إدارة المنصة بإضافة +${delta} eBits إلى رصيدك. رصيدك الحالي: ${newBal} eBits.`
+            : `قامت إدارة المنصة بخصم ${Math.abs(delta)} eBits من رصيدك. رصيدك الحالي: ${newBal} eBits.`,
+          is_read: false,
+        });
+
+        setSettingsNotice({
+          type: 'success',
+          msg: `تم ${delta > 0 ? 'إضافة' : 'خصم'} ${Math.abs(delta)} eBits للمستخدم ${targetUser?.full_name}. الرصيد الجديد: ${newBal}`,
+        });
+      } else {
+        const targetTeam = teams.find(t => t.id === modifierTargetId);
+        const currentBal = targetTeam?.ebits_balance || 0;
+        const newBal = Math.max(0, currentBal + delta);
+
+        const { error } = await supabase
+          .from('teams')
+          .update({ ebits_balance: newBal })
+          .eq('id', modifierTargetId);
+
+        if (error) throw error;
+
+        setSettingsNotice({
+          type: 'success',
+          msg: `تم ${delta > 0 ? 'إضافة' : 'خصم'} ${Math.abs(delta)} eBits للفريق ${targetTeam?.name}. الرصيد الجديد: ${newBal}`,
+        });
+      }
+
+      fetchAdminData();
+      setTimeout(() => setSettingsNotice(null), 4000);
+    } catch (err: any) {
+      setSettingsNotice({ type: 'error', msg: err.message || 'فشل تعديل الرصيد' });
+    } finally {
+      setIsModifyingBalance(false);
+    }
   };
 
   // Actions
@@ -236,6 +380,15 @@ export default function AdminDashboardPage() {
           }`}
         >
           المنظمات والفرق ({teams.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('economy')}
+          className={`px-4 py-2 rounded-xl text-xs font-extrabold transition shrink-0 flex items-center gap-1.5 ${
+            activeTab === 'economy' ? 'bg-amber-400 text-black shadow-sm' : 'bg-[#080808] text-amber-400 hover:bg-amber-500/10 border border-amber-500/30'
+          }`}
+        >
+          <Zap className="w-3.5 h-3.5" />
+          <span>أسعار المتجر والاقتصاد (eBits)</span>
         </button>
         <button
           onClick={() => setActiveTab('appeals')}
@@ -526,6 +679,340 @@ export default function AdminDashboardPage() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {/* TAB: ECONOMY & PRICING MANAGEMENT */}
+      {activeTab === 'economy' && (
+        <div className="space-y-6 text-right animate-in fade-in duration-200">
+          
+          {/* Notification Banner */}
+          {settingsNotice && (
+            <div className={`p-4 rounded-2xl text-xs font-black flex items-center justify-between gap-3 shadow-lg ${
+              settingsNotice.type === 'success'
+                ? 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-300'
+                : 'bg-red-500/20 border border-red-500/40 text-red-300'
+            }`}>
+              <div className="flex items-center gap-2">
+                {settingsNotice.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+                <span>{settingsNotice.msg}</span>
+              </div>
+            </div>
+          )}
+
+          {/* 1. STORE ITEMS PRICING CONFIG */}
+          <div className="card-3d p-6 space-y-5 border-amber-500/20">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
+              <div>
+                <h2 className="text-base font-black text-white flex items-center gap-2">
+                  <ShoppingBag className="w-5 h-5 text-amber-400" />
+                  <span>تعديل أسعار متجر المنصة (eStore Prices)</span>
+                </h2>
+                <p className="text-xs text-zinc-400 mt-1">
+                  الأسعار المحددة هنا تُطبق فورياً وبشكل حي على صفحة المتجر (/store) لجميع اللاعبين والفرق.
+                </p>
+              </div>
+
+              <button
+                onClick={handleSaveEconomySettings}
+                disabled={isSavingSettings}
+                className="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-black text-xs flex items-center justify-center gap-2 shadow-md transition disabled:opacity-50"
+              >
+                <Save className="w-4 h-4" />
+                <span>حفظ التعديلات في النظام</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              
+              {/* Item 1: Post Boost */}
+              <div className="p-4 rounded-2xl bg-black/60 border border-white/10 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-white">بطاقة تمييز المنشور (Neon Boost)</span>
+                  <Sparkles className="w-4 h-4 text-amber-400" />
+                </div>
+                <p className="text-[10px] text-zinc-500 leading-tight">سعر البطاقة الواحدة لتمييز المنشور بوهج نيون</p>
+                <div className="relative pt-1">
+                  <input
+                    type="number"
+                    min={10}
+                    max={50000}
+                    step={10}
+                    value={storePrices.post_boost}
+                    onChange={(e) => setStorePrices({ ...storePrices, post_boost: Number(e.target.value) || 0 })}
+                    className="w-full input-3d rounded-xl px-3 py-2 text-xs font-mono font-black text-amber-400"
+                  />
+                  <span className="absolute left-3 top-3 text-[10px] font-mono text-zinc-500">eBits</span>
+                </div>
+              </div>
+
+              {/* Item 2: Ultra HD */}
+              <div className="p-4 rounded-2xl bg-black/60 border border-white/10 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-white">بطاقة رفع وسائط 4K (Ultra HD)</span>
+                  <Star className="w-4 h-4 text-cyan-400" />
+                </div>
+                <p className="text-[10px] text-zinc-500 leading-tight">سعر تفعيل البث والرفع بجودة 4K فائقة الدقة</p>
+                <div className="relative pt-1">
+                  <input
+                    type="number"
+                    min={10}
+                    max={50000}
+                    step={10}
+                    value={storePrices.ultra_hd}
+                    onChange={(e) => setStorePrices({ ...storePrices, ultra_hd: Number(e.target.value) || 0 })}
+                    className="w-full input-3d rounded-xl px-3 py-2 text-xs font-mono font-black text-cyan-400"
+                  />
+                  <span className="absolute left-3 top-3 text-[10px] font-mono text-zinc-500">eBits</span>
+                </div>
+              </div>
+
+              {/* Item 3: Splash Pass */}
+              <div className="p-4 rounded-2xl bg-black/60 border border-white/10 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-white">ترخيص استوديو الدخول (Splash Studio)</span>
+                  <Crown className="w-4 h-4 text-purple-400" />
+                </div>
+                <p className="text-[10px] text-zinc-500 leading-tight">سعر فتح استوديو تصميم أنيميشن دخول صفحة الفريق</p>
+                <div className="relative pt-1">
+                  <input
+                    type="number"
+                    min={50}
+                    max={100000}
+                    step={50}
+                    value={storePrices.splash_pass}
+                    onChange={(e) => setStorePrices({ ...storePrices, splash_pass: Number(e.target.value) || 0 })}
+                    className="w-full input-3d rounded-xl px-3 py-2 text-xs font-mono font-black text-purple-400"
+                  />
+                  <span className="absolute left-3 top-3 text-[10px] font-mono text-zinc-500">eBits</span>
+                </div>
+              </div>
+
+              {/* Item 4: Verified Shield */}
+              <div className="p-4 rounded-2xl bg-black/60 border border-white/10 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-white">درع توثيق الفريق (Verified Shield)</span>
+                  <Shield className="w-4 h-4 text-emerald-400" />
+                </div>
+                <p className="text-[10px] text-zinc-500 leading-tight">سعر تقديم طلب التوثيق الرسمي للكلان أو الفريق</p>
+                <div className="relative pt-1">
+                  <input
+                    type="number"
+                    min={100}
+                    max={200000}
+                    step={100}
+                    value={storePrices.verified_shield}
+                    onChange={(e) => setStorePrices({ ...storePrices, verified_shield: Number(e.target.value) || 0 })}
+                    className="w-full input-3d rounded-xl px-3 py-2 text-xs font-mono font-black text-emerald-400"
+                  />
+                  <span className="absolute left-3 top-3 text-[10px] font-mono text-zinc-500">eBits</span>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          {/* 2. SPONSOR VAULT & DAILY REWARDS CONFIG */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            
+            {/* Sponsor Vault Settings */}
+            <div className="card-3d p-5 space-y-4">
+              <div className="flex items-center gap-2 text-white font-extrabold text-sm border-b border-white/10 pb-3">
+                <Zap className="w-4 h-4 text-amber-400" />
+                <span>إعدادات إعلانات الرعاة (eSponsor Vault)</span>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1">مكافأة مشاهدة الإعلان الواحد (eBits):</label>
+                  <input
+                    type="number"
+                    min={5}
+                    max={1000}
+                    value={vaultConfig.default_reward}
+                    onChange={(e) => setVaultConfig({ ...vaultConfig, default_reward: Number(e.target.value) || 0 })}
+                    className="w-full input-3d rounded-xl px-3 py-2 text-xs font-mono font-black text-amber-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1">مدة الإعلان الإجبارية (بالثواني):</label>
+                  <input
+                    type="number"
+                    min={5}
+                    max={60}
+                    value={vaultConfig.ad_duration}
+                    onChange={(e) => setVaultConfig({ ...vaultConfig, ad_duration: Number(e.target.value) || 0 })}
+                    className="w-full input-3d rounded-xl px-3 py-2 text-xs font-mono font-black text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1">فترة الانتظار بين الإعلانات (بالدقائق):</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={120}
+                    value={vaultConfig.cooldown_minutes}
+                    onChange={(e) => setVaultConfig({ ...vaultConfig, cooldown_minutes: Number(e.target.value) || 0 })}
+                    className="w-full input-3d rounded-xl px-3 py-2 text-xs font-mono font-black text-white"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Daily Rewards Settings */}
+            <div className="card-3d p-5 space-y-4">
+              <div className="flex items-center gap-2 text-white font-extrabold text-sm border-b border-white/10 pb-3">
+                <Gift className="w-4 h-4 text-emerald-400" />
+                <span>إعدادات مكافآت الدخول اليومي (Daily Check-in)</span>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1">نقاط الخبرة اليومية (Daily XP):</label>
+                  <input
+                    type="number"
+                    min={10}
+                    max={5000}
+                    value={dailyConfig.daily_xp}
+                    onChange={(e) => setDailyConfig({ ...dailyConfig, daily_xp: Number(e.target.value) || 0 })}
+                    className="w-full input-3d rounded-xl px-3 py-2 text-xs font-mono font-black text-emerald-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-zinc-300 mb-1">رصيد eBits اليومي الممنوح (Daily eBits):</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={1000}
+                    value={dailyConfig.daily_ebits}
+                    onChange={(e) => setDailyConfig({ ...dailyConfig, daily_ebits: Number(e.target.value) || 0 })}
+                    className="w-full input-3d rounded-xl px-3 py-2 text-xs font-mono font-black text-amber-400"
+                  />
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    onClick={handleSaveEconomySettings}
+                    disabled={isSavingSettings}
+                    className="w-full py-2.5 rounded-xl bg-white text-black font-black text-xs hover:bg-zinc-200 transition"
+                  >
+                    حفظ وتثبيت المكافآت اليومية
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          {/* 3. DIRECT USER / TEAM BALANCE MODIFIER */}
+          <div className="card-3d p-6 space-y-4 border-white/20">
+            <div className="border-b border-white/10 pb-3">
+              <h3 className="text-sm font-black text-white flex items-center gap-2">
+                <Coins className="w-4 h-4 text-amber-400" />
+                <span>شحن أو تعديل رصيد eBits المباشر للاعبين والفرق</span>
+              </h3>
+              <p className="text-xs text-zinc-400 mt-0.5">
+                يمكنك كمسؤول منح أو خصم عملات eBits لأي لاعب أو فريق مع إرسال إشعار فوري في حسابه.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+              
+              <div className="sm:col-span-3">
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">النوع المستهدف:</label>
+                <div className="grid grid-cols-2 gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModifierTargetType('user');
+                      if (users.length > 0) setModifierTargetId(users[0].id);
+                    }}
+                    className={`py-2 rounded-xl text-xs font-black transition ${
+                      modifierTargetType === 'user' ? 'bg-white text-black' : 'bg-black/50 text-zinc-400 border border-white/10'
+                    }`}
+                  >
+                    لاعب
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModifierTargetType('team');
+                      if (teams.length > 0) setModifierTargetId(teams[0].id);
+                    }}
+                    className={`py-2 rounded-xl text-xs font-black transition ${
+                      modifierTargetType === 'team' ? 'bg-white text-black' : 'bg-black/50 text-zinc-400 border border-white/10'
+                    }`}
+                  >
+                    فريق / كلان
+                  </button>
+                </div>
+              </div>
+
+              <div className="sm:col-span-5">
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">
+                  {modifierTargetType === 'user' ? 'اختر اللاعب:' : 'اختر الفريق:'}
+                </label>
+                <select
+                  value={modifierTargetId}
+                  onChange={(e) => setModifierTargetId(e.target.value)}
+                  className="w-full input-3d rounded-xl px-3 py-2 text-xs font-bold text-white"
+                >
+                  {modifierTargetType === 'user' ? (
+                    users.map(u => (
+                      <option key={u.id} value={u.id}>
+                        {u.full_name} (@{u.username}) — الرصيد الحالي: {(u.ebits_balance || 0)} eBits
+                      </option>
+                    ))
+                  ) : (
+                    teams.map(t => (
+                      <option key={t.id} value={t.id}>
+                        {t.name} [{t.tag}] — الرصيد الحالي: {(t.ebits_balance || 0)} eBits
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-bold text-zinc-300 mb-1.5">الكمية (eBits):</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={500000}
+                  step={50}
+                  value={modifierAmount}
+                  onChange={(e) => setModifierAmount(Number(e.target.value) || 0)}
+                  className="w-full input-3d rounded-xl px-3 py-2 text-xs font-mono font-black text-amber-400"
+                />
+              </div>
+
+              <div className="sm:col-span-2 flex items-center gap-1.5">
+                <button
+                  onClick={() => handleAdjustBalance(modifierAmount)}
+                  disabled={isModifyingBalance || modifierAmount <= 0}
+                  className="flex-1 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs flex items-center justify-center gap-1 transition shadow-sm"
+                  title="إضافة رصيد"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>شحن (+)</span>
+                </button>
+                <button
+                  onClick={() => handleAdjustBalance(-modifierAmount)}
+                  disabled={isModifyingBalance || modifierAmount <= 0}
+                  className="flex-1 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 font-black text-xs flex items-center justify-center gap-1 transition shadow-sm"
+                  title="خصم رصيد"
+                >
+                  <Minus className="w-3.5 h-3.5" />
+                  <span>خصم (-)</span>
+                </button>
+              </div>
+
+            </div>
+          </div>
+
         </div>
       )}
 

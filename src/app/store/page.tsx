@@ -81,6 +81,7 @@ export default function StorePage() {
   const [balance, setBalance] = useState(0);
   const [boostCards, setBoostCards] = useState(0);
   const [ultraHdCards, setUltraHdCards] = useState(0);
+  const [items, setItems] = useState<StoreItem[]>(STORE_ITEMS);
   const [isLoading, setIsLoading] = useState(true);
   const [purchasing, setPurchasing] = useState<string | null>(null);
   const [purchaseResult, setPurchaseResult] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
@@ -94,17 +95,40 @@ export default function StorePage() {
   }, []);
 
   const fetchUserData = async (id: string) => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('ebits_balance, boost_cards_count, ultra_hd_cards_count')
-      .eq('id', id)
-      .single();
-    if (data) {
-      setBalance(data.ebits_balance || 0);
-      setBoostCards(data.boost_cards_count || 0);
-      setUltraHdCards(data.ultra_hd_cards_count || 0);
+    try {
+      const [profileRes, pricesRes] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('ebits_balance, boost_cards_count, ultra_hd_cards_count')
+          .eq('id', id)
+          .single(),
+        supabase
+          .from('platform_settings')
+          .select('value')
+          .eq('key', 'store_prices')
+          .maybeSingle(),
+      ]);
+
+      if (profileRes.data) {
+        setBalance(profileRes.data.ebits_balance || 0);
+        setBoostCards(profileRes.data.boost_cards_count || 0);
+        setUltraHdCards(profileRes.data.ultra_hd_cards_count || 0);
+      }
+
+      if (pricesRes.data?.value) {
+        const dynamicPrices = pricesRes.data.value;
+        setItems(prev => prev.map(item => {
+          if (dynamicPrices[item.id] !== undefined) {
+            return { ...item, price: Number(dynamicPrices[item.id]) };
+          }
+          return item;
+        }));
+      }
+    } catch (e) {
+      console.warn('Error fetching store settings:', e);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const handlePurchase = async (item: StoreItem) => {
@@ -215,7 +239,7 @@ export default function StorePage() {
 
         {/* Store Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {STORE_ITEMS.map(item => {
+          {items.map(item => {
             const inventoryCount = getInventoryCount(item.type);
             const canAfford = balance >= item.price;
             const isPurchasing = purchasing === item.id;
