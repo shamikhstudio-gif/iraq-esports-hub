@@ -281,6 +281,14 @@ function NavbarContent() {
                         </div>
                         <div className="grid grid-cols-2 gap-1 mb-2">
                           <button
+                            onClick={() => handleSwitchAccount('admin@iraqesportshub.com')}
+                            className="col-span-2 px-2.5 py-1.5 text-[11px] font-black rounded-lg bg-[#0095f6]/15 border border-[#0095f6]/30 text-[#0095f6] hover:bg-[#0095f6]/25 hover:text-white flex items-center justify-center gap-1.5 transition shadow-sm"
+                            title="حساب إدارة المنصة"
+                          >
+                            <ShieldCheck className="w-3.5 h-3.5" />
+                            <span>حساب الإدارة (Admin)</span>
+                          </button>
+                          <button
                             onClick={() => handleSwitchAccount('shamikhstudio@gmail.com')}
                             className="px-2 py-1 text-[10px] font-medium rounded bg-white/5 text-zinc-300 hover:bg-white/15 hover:text-white truncate"
                             title="جواد شامخ"
