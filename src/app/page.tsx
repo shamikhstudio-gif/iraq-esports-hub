@@ -12,6 +12,7 @@ import { Sidebar } from '@/components/Sidebar';
 import { PostCard } from '@/components/PostCard';
 import { CreatePostModal } from '@/components/CreatePostModal';
 import { DailyCheckinWidget } from '@/components/DailyCheckinWidget';
+import { SponsorVaultWidget } from '@/components/store/SponsorVaultWidget';
 import { supabase } from '@/lib/supabase';
 import { Post } from '@/lib/types';
 
@@ -260,7 +261,10 @@ function HomeContent() {
       </div>
 
       <div className="lg:col-span-4">
-        <div className="sticky top-20">
+        <div className="sticky top-20 space-y-4">
+          {/* eSponsor Vault Widget */}
+          <SponsorVaultWidget />
+
           <Sidebar
             activeGame={selectedGame}
             onSelectGame={setSelectedGame}

@@ -13,7 +13,8 @@ import {
   Search,
   PlusSquare, 
   Menu, 
-  X
+  X,
+  Zap
 } from 'lucide-react';
 import { HomeIcon, TeamsIcon, BellIcon, MessagesIcon, SwordsIcon, SettingsIcon } from '@/components/icons/CustomIcons';
 import { supabase } from '@/lib/supabase';
@@ -158,6 +159,16 @@ function NavbarContent() {
             <div className="flex items-center gap-3">
               {currentUser && (
                 <>
+                  {/* eBits Balance Pill */}
+                  <Link
+                    href="/store"
+                    title="متجر eBits"
+                    className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/25 hover:border-amber-500/50 hover:bg-amber-500/15 transition-all group"
+                  >
+                    <Zap className="w-3 h-3 text-amber-400" />
+                    <span className="text-xs font-black text-amber-400 font-mono">{(currentUser.ebits_balance || 0).toLocaleString()}</span>
+                  </Link>
+
                   {/* Create Post Button */}
                   <button
                     onClick={() => setIsCreatePostOpen(true)}

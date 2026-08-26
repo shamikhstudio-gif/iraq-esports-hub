@@ -25,6 +25,9 @@ export interface Profile {
   xp?: number;
   level?: number;
   last_checkin_date?: string | null;
+  ebits_balance?: number;
+  boost_cards_count?: number;
+  ultra_hd_cards_count?: number;
   created_at: string;
   team?: Team | null;
 }
@@ -117,6 +120,19 @@ export interface Team {
   achievements?: { title: string; year: string }[];
   current_streak?: number;
   last_match_date?: string | null;
+  ebits_balance?: number;
+  entry_splash_config?: {
+    text?: string;
+    font?: string;
+    text_gradient?: string[];
+    image_url?: string | null;
+    animation_type?: 'zoom' | 'glitch' | 'scanline' | 'flip' | 'fade';
+    backdrop_type?: 'blur' | 'color' | 'gradient';
+    backdrop_color?: string;
+    backdrop_blur?: number;
+    duration?: number;
+    sound?: boolean;
+  } | null;
   created_at: string;
   members_count?: number;
   roles?: TeamRole[];
@@ -135,6 +151,8 @@ export interface Post {
   is_pinned?: boolean;
   likes_count: number;
   comments_count: number;
+  is_boosted?: boolean;
+  is_ultra_hd?: boolean;
   created_at: string;
   author?: Profile;
   team?: Team;

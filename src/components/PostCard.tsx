@@ -12,7 +12,9 @@ import {
   Sparkles,
   MessageCircle,
   MoreHorizontal,
-  X
+  X,
+  Star,
+  Zap
 } from 'lucide-react';
 import { SwordsIcon, TeamsIcon, MessagesIcon } from '@/components/icons/CustomIcons';
 import { Post, Comment } from '@/lib/types';
@@ -169,8 +171,29 @@ export function PostCard({ post, onDelete }: PostCardProps) {
   return (
     <article
       id={`post-${post.id}`}
-      className="ig-card overflow-hidden"
+      className={`ig-card overflow-hidden relative ${
+        post.is_boosted
+          ? 'ring-1 ring-amber-500/40 shadow-[0_0_25px_rgba(245,158,11,0.15)] before:absolute before:inset-0 before:rounded-[inherit] before:bg-gradient-to-r before:from-amber-500/5 before:via-transparent before:to-amber-500/5 before:pointer-events-none'
+          : ''
+      }`}
     >
+      {/* Boosted Badges */}
+      {(post.is_boosted || post.is_ultra_hd) && (
+        <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5">
+          {post.is_boosted && (
+            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-400 text-[10px] font-black">
+              <Zap className="w-2.5 h-2.5" />
+              مُميَّز 🔥
+            </span>
+          )}
+          {post.is_ultra_hd && (
+            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-cyan-500/20 border border-cyan-500/40 text-cyan-400 text-[10px] font-black">
+              <Star className="w-2.5 h-2.5" />
+              Ultra HD 4K
+            </span>
+          )}
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between p-3.5 pb-2.5">
         <div className="flex items-center gap-3">

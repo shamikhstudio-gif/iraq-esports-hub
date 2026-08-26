@@ -302,10 +302,18 @@ export default function SettingsPage() {
       setTimeout(async () => {
         setIsPasskeyLoading(true);
         try {
+          const { data: sessionCheck } = await supabase.auth.getSession();
+          if (!sessionCheck?.session) {
+            throw new Error('لم يتم إنشاء جلسة مصادقة نشطة. يرجى تسجيل الدخول مجدداً بالبريد الإلكتروني لتفعيل مفتاح المرور.');
+          }
+
           const { data, error } = await supabase.auth.registerPasskey();
           if (error) {
             if (error.name === 'NotAllowedError' || error.message?.includes('NotAllowedError')) {
               throw new Error('تم إلغاء عملية تسجيل مفتاح المرور أو لم يتم التعرف على البصمة');
+            }
+            if (error.message?.includes('passkey_disabled')) {
+              throw new Error('خدمة Passkey غير مفعلة في مشروع Supabase حالياً');
             }
             throw new Error(error.message || 'فشل تسجيل مفتاح المرور');
           }

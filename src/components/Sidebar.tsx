@@ -87,6 +87,13 @@ export function Sidebar({
           <Trophy className="w-3.5 h-3.5 text-amber-400" />
           <span>لوحة الشرف وتصنيف الفرق</span>
         </Link>
+        <Link
+          href="/store"
+          className="w-full mt-2 py-2 px-3 bg-amber-500/10 hover:bg-amber-500/15 text-amber-400 hover:text-amber-300 rounded-lg text-xs font-black flex items-center justify-center gap-1.5 transition border border-amber-500/25 hover:border-amber-500/40"
+        >
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>متجر eBits — eStore ⚡</span>
+        </Link>
       </div>
 
       {/* Filter by Game */}
