@@ -23,85 +23,52 @@ import { CreateScrimModal } from '@/components/scrims/CreateScrimModal';
 import { MatchRoomModal } from '@/components/scrims/MatchRoomModal';
 import { IncomingChallengesModal } from '@/components/scrims/IncomingChallengesModal';
 import { MercenaryBar } from '@/components/scrims/MercenaryBar';
+import { LiveMatchTicker } from '@/components/scrims/LiveMatchTicker';
+import { useUser } from '@/context/UserContext';
+import { useSwrData } from '@/lib/cache';
+import { TeamCardSkeleton, Button, Badge, Card } from '@/components/ui';
 
 export default function ScrimsPage() {
-  const [currentUser, setCurrentUser] = useState<Profile | null>(null);
-  const [userTeams, setUserTeams] = useState<Team[]>([]);
-  const [lobbies, setLobbies] = useState<ScrimLobby[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Filters
-  const [selectedGame, setSelectedGame] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'in_progress' | 'completed'>('all');
-  const [searchQuery, setSearchQuery] = useState('');
+  const { user: currentUser } = useUser();
+  const userId = currentUser?.id;
 
   // Modals
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [activeRoomLobby, setActiveRoomLobby] = useState<ScrimLobby | null>(null);
   const [incomingChallengesLobby, setIncomingChallengesLobby] = useState<ScrimLobby | null>(null);
 
-  useEffect(() => {
-    fetchInitialData();
+  // Filters
+  const [selectedGame, setSelectedGame] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'in_progress' | 'completed'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
-    // Subscribe to Realtime Postgres changes on both scrim_lobbies and scrim_challenges
-    const lobbiesChannel = supabase
-      .channel('scrim_lobbies_realtime')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'scrim_lobbies' },
-        async () => {
-          await fetchLobbies();
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'scrim_challenges' },
-        async () => {
-          await fetchLobbies();
-        }
-      )
-      .subscribe();
+  // 1. Cached User Teams
+  const { data: userTeams = [] } = useSwrData<Team[]>(
+    userId ? `scrim_user_teams_${userId}` : null,
+    async () => {
+      const [memberRes, capRes] = await Promise.all([
+        supabase.from('team_members').select('team:teams(*)').eq('user_id', userId!),
+        supabase.from('teams').select('*').eq('captain_id', userId!),
+      ]);
 
-    return () => {
-      supabase.removeChannel(lobbiesChannel);
-    };
-  }, []);
+      const memberTeams = (memberRes.data?.map((m: any) => m.team).filter(Boolean) || []) as Team[];
+      const captainTeams = (capRes.data || []) as Team[];
+      const teamsMap = new Map<string, Team>();
+      [...captainTeams, ...memberTeams].forEach((t) => teamsMap.set(t.id, t));
+      return Array.from(teamsMap.values());
+    },
+    { ttl: 180_000 }
+  );
 
-  const fetchInitialData = async () => {
-    setIsLoading(true);
-    try {
-      const savedUserId = typeof window !== 'undefined' ? localStorage.getItem('babylon_user_id') : null;
-
-      // 1. Fetch Current User Profile & User Teams
-      if (savedUserId) {
-        const [userRes, memberRes, capRes] = await Promise.all([
-          supabase.from('profiles').select('*').eq('id', savedUserId).single(),
-          supabase.from('team_members').select('team:teams(*)').eq('user_id', savedUserId),
-          supabase.from('teams').select('*').eq('captain_id', savedUserId),
-        ]);
-
-        if (userRes.data) setCurrentUser(userRes.data as Profile);
-
-        const memberTeams = (memberRes.data?.map((m: any) => m.team).filter(Boolean) || []) as Team[];
-        const captainTeams = (capRes.data || []) as Team[];
-
-        // Deduplicate teams by ID
-        const teamsMap = new Map<string, Team>();
-        [...captainTeams, ...memberTeams].forEach((t) => teamsMap.set(t.id, t));
-        setUserTeams(Array.from(teamsMap.values()));
-      }
-
-      // 2. Fetch Lobbies with full joins
-      await fetchLobbies();
-    } catch (err) {
-      console.error('Error loading scrims hub data:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const fetchLobbies = async () => {
-    try {
+  // 2. Cached Scrim Lobbies with Realtime auto-revalidation
+  const {
+    data: lobbies = [],
+    isLoading,
+    revalidate: revalidateLobbies,
+    mutate: mutateLobbies,
+  } = useSwrData<ScrimLobby[]>(
+    'scrim_lobbies_all',
+    async () => {
       const { data, error } = await supabase
         .from('scrim_lobbies')
         .select(`
@@ -112,13 +79,35 @@ export default function ScrimsPage() {
         `)
         .order('created_at', { ascending: false });
 
-      if (data) {
-        setLobbies(data as ScrimLobby[]);
-      }
-    } catch (err) {
-      console.error('Error fetching lobbies:', err);
-    }
-  };
+      if (error) return [];
+      return (data || []) as ScrimLobby[];
+    },
+    { ttl: 60_000 }
+  );
+
+  useEffect(() => {
+    const lobbiesChannel = supabase
+      .channel('scrim_lobbies_realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'scrim_lobbies' },
+        () => {
+          revalidateLobbies();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'scrim_challenges' },
+        () => {
+          revalidateLobbies();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(lobbiesChannel);
+    };
+  }, [revalidateLobbies]);
 
   // Send Challenge Request (Challenger Flow)
   const handleSendChallenge = async (lobbyId: string, challengerTeamId: string) => {
@@ -141,7 +130,7 @@ export default function ScrimsPage() {
         .single();
 
       if (error) throw error;
-      await fetchLobbies();
+      await revalidateLobbies();
       alert('تم إرسال طلب التحدي بنجاح إلى كابتن الفريق المستضيف. سيتم إشعاركم فور القبول.');
     } catch (err: any) {
       console.error('Error sending challenge request:', err);
@@ -151,7 +140,7 @@ export default function ScrimsPage() {
 
   // Accept Challenge (Host Flow)
   const handleAcceptIncomingChallenge = async (challenge: ScrimChallenge) => {
-    await fetchLobbies();
+    await revalidateLobbies();
     const updated = lobbies.find((l) => l.id === challenge.lobby_id);
     if (updated) {
       setActiveRoomLobby(updated);
@@ -167,7 +156,7 @@ export default function ScrimsPage() {
         .update({ status: 'cancelled' })
         .eq('id', lobbyId);
 
-      setLobbies((prev) => prev.filter((l) => l.id !== lobbyId));
+      mutateLobbies((prev) => (prev || []).filter((l) => l.id !== lobbyId));
     } catch (err) {
       console.error('Error cancelling lobby:', err);
     }
@@ -192,25 +181,16 @@ export default function ScrimsPage() {
   const inProgressCount = lobbies.filter((l) => l.status === 'in_progress').length;
 
   return (
-    <div className="relative min-h-[calc(100vh-4rem)] pb-16">
-      {/* Ambient Top Glow */}
-      <div 
-        className="fixed top-0 left-0 right-0 h-[800px] pointer-events-none z-0 opacity-25"
-        style={{
-          background: 'radial-gradient(ellipse 100% 60% at 50% -10%, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.05) 50%, rgba(0,0,0,0) 80%)'
-        }}
-      />
-
-      <div className="max-w-5xl mx-auto py-6 px-4 space-y-6 relative z-10 text-right" dir="rtl">
+    <div className="relative min-h-[calc(100vh-4rem)] pb-16 bg-black">
+      <div className="layout-container py-6 px-4 space-y-6 relative z-10 text-right" dir="rtl">
         
         {/* Main Hub Header Banner */}
-        <div className="p-6 sm:p-8 rounded-3xl bg-[#090909] border border-white/15 shadow-[0_20px_50px_rgba(0,0,0,0.9)] flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
+        <Card variant="elevated" className="p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
           <div className="space-y-2 relative z-10">
             <div className="flex items-center gap-2">
-              <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/20 text-red-400 text-xs font-black border border-red-500/30">
-                <Radio className="w-3.5 h-3.5 animate-pulse text-red-500" />
+              <Badge variant="solid" size="sm" icon={<Radio className="w-3.5 h-3.5 animate-pulse text-black" />}>
                 <span>ساحة السكريمات والتحديات الرسمية (Live Scrims Arena)</span>
-              </span>
+              </Badge>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
               غرفة الحرب والمواجهات المباشرة بين فرق العراق
@@ -221,72 +201,59 @@ export default function ScrimsPage() {
           </div>
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0 relative z-10">
-            <button
-              type="button"
+            <Button
+              variant="primary"
+              size="md"
+              icon={<Plus className="w-4 h-4 stroke-[3]" />}
               onClick={() => setIsCreateModalOpen(true)}
-              className="px-6 py-3.5 btn-3d-primary text-black rounded-2xl text-xs font-black flex items-center justify-center gap-2 shadow-lg hover:scale-105 transition"
             >
-              <Plus className="w-4 h-4 stroke-[3]" />
               <span>فتح غرفة تحدي وسكريم جديد</span>
-            </button>
+            </Button>
           </div>
-        </div>
+        </Card>
+
+        {/* Live Active Matches Ticker */}
+        <LiveMatchTicker onSelectLobby={(lobby) => setActiveRoomLobby(lobby)} />
 
         {/* Mercenary / Sub Ring */}
         <MercenaryBar currentUser={currentUser} />
 
         {/* Filters & Search Control Bar */}
-        <div className="p-4 rounded-3xl bg-[#0a0a0a] border border-white/15 space-y-4 shadow-md">
+        <Card variant="elevated" className="p-4 space-y-4">
           <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
             
             {/* Status Pills */}
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 md:pb-0">
-              <button
-                type="button"
+              <Button
+                variant={statusFilter === 'all' ? 'primary' : 'secondary'}
+                size="sm"
                 onClick={() => setStatusFilter('all')}
-                className={`px-3.5 py-2 rounded-xl text-xs font-black whitespace-nowrap transition ${
-                  statusFilter === 'all'
-                    ? 'bg-white text-black shadow-md'
-                    : 'bg-[#141414] text-zinc-400 hover:text-white border border-white/10'
-                }`}
               >
-                جميع التحديات ({lobbies.length})
-              </button>
-              <button
-                type="button"
+                <span>جميع التحديات ({lobbies.length})</span>
+              </Button>
+              <Button
+                variant={statusFilter === 'open' ? 'primary' : 'secondary'}
+                size="sm"
+                icon={<span className="w-2 h-2 rounded-full bg-current" />}
                 onClick={() => setStatusFilter('open')}
-                className={`px-3.5 py-2 rounded-xl text-xs font-black whitespace-nowrap transition flex items-center gap-1.5 ${
-                  statusFilter === 'open'
-                    ? 'bg-emerald-500 text-black border-emerald-400 shadow-md'
-                    : 'bg-[#141414] text-zinc-400 hover:text-white border border-white/10'
-                }`}
               >
-                <span className="w-2 h-2 rounded-full bg-emerald-400" />
                 <span>مفتوحة للعب الآن ({liveOpenCount})</span>
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant={statusFilter === 'in_progress' ? 'primary' : 'secondary'}
+                size="sm"
+                icon={<Swords className="w-3.5 h-3.5" />}
                 onClick={() => setStatusFilter('in_progress')}
-                className={`px-3.5 py-2 rounded-xl text-xs font-black whitespace-nowrap transition flex items-center gap-1.5 ${
-                  statusFilter === 'in_progress'
-                    ? 'bg-amber-500 text-black border-amber-400 shadow-md'
-                    : 'bg-[#141414] text-zinc-400 hover:text-white border border-white/10'
-                }`}
               >
-                <Swords className="w-3.5 h-3.5" />
                 <span>جارية الآن ({inProgressCount})</span>
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant={statusFilter === 'completed' ? 'primary' : 'secondary'}
+                size="sm"
                 onClick={() => setStatusFilter('completed')}
-                className={`px-3.5 py-2 rounded-xl text-xs font-black whitespace-nowrap transition ${
-                  statusFilter === 'completed'
-                    ? 'bg-white text-black shadow-md'
-                    : 'bg-[#141414] text-zinc-400 hover:text-white border border-white/10'
-                }`}
               >
-                منتهية وموثقة
-              </button>
+                <span>منتهية وموثقة</span>
+              </Button>
             </div>
 
             {/* Search Input */}
@@ -306,27 +273,24 @@ export default function ScrimsPage() {
           {/* Game Quick Filter Bar */}
           <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pt-1 border-t border-white/10">
             {['all', 'Valorant', 'CS2', 'Rocket League', 'PUBG Mobile', 'Overwatch 2', 'League of Legends', 'FC 24'].map((g) => (
-              <button
+              <Button
                 key={g}
-                type="button"
+                variant={selectedGame === g ? 'primary' : 'ghost'}
+                size="xs"
                 onClick={() => setSelectedGame(g)}
-                className={`px-3 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap transition ${
-                  selectedGame === g
-                    ? 'bg-white/20 text-white border border-white/30'
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5'
-                }`}
               >
-                {g === 'all' ? '🎮 جميع الألعاب' : g}
-              </button>
+                <span>{g === 'all' ? 'جميع الألعاب' : g}</span>
+              </Button>
             ))}
           </div>
-        </div>
+        </Card>
 
         {/* Lobbies Feed */}
         {isLoading ? (
-          <div className="p-16 text-center rounded-3xl border border-white/10 bg-[#0a0a0a] space-y-3">
-            <Loader2 className="w-8 h-8 animate-spin text-white mx-auto" />
-            <p className="text-xs text-zinc-400 font-bold">جاري تحميل ساحة وتحديات السكريمات المباشرة...</p>
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <TeamCardSkeleton key={i} />
+            ))}
           </div>
         ) : filteredLobbies.length > 0 ? (
           <div className="space-y-4">
@@ -351,14 +315,14 @@ export default function ScrimsPage() {
               كن السبّاق وافتح غرفة تحدي جديدة لفريقك وادعُ فرق العراق لمواجهتكم!
             </p>
             <div className="pt-2">
-              <button
-                type="button"
+              <Button
+                variant="primary"
+                size="sm"
+                icon={<Plus className="w-4 h-4 stroke-[3]" />}
                 onClick={() => setIsCreateModalOpen(true)}
-                className="px-5 py-2.5 btn-3d-primary text-black rounded-xl text-xs font-black shadow-md inline-flex items-center gap-2"
               >
-                <Plus className="w-4 h-4 stroke-[3]" />
                 <span>فتح غرفة تحدي الآن</span>
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -371,7 +335,7 @@ export default function ScrimsPage() {
           isOpen={isCreateModalOpen}
           onClose={() => setIsCreateModalOpen(false)}
           onSuccess={(newLobby) => {
-            setLobbies((prev) => [newLobby, ...prev]);
+            mutateLobbies((prev) => [newLobby, ...(prev || [])]);
             setActiveRoomLobby(newLobby);
           }}
           currentUser={currentUser}
@@ -388,7 +352,7 @@ export default function ScrimsPage() {
           onClose={() => setIncomingChallengesLobby(null)}
           onAcceptChallenge={handleAcceptIncomingChallenge}
           onDeclineChallenge={async () => {
-            await fetchLobbies();
+            await revalidateLobbies();
           }}
         />
       )}
@@ -402,7 +366,7 @@ export default function ScrimsPage() {
           currentUser={currentUser}
           userTeams={userTeams}
           onUpdateLobby={(updated) => {
-            setLobbies((prev) => prev.map((l) => (l.id === updated.id ? updated : l)));
+            mutateLobbies((prev) => (prev || []).map((l) => (l.id === updated.id ? updated : l)));
             setActiveRoomLobby(updated);
           }}
         />

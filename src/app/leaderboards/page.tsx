@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Trophy, Medal, Gamepad2, Loader2, ArrowUpRight, Users, User, CheckCircle2 } from 'lucide-react';
 import { TeamsIcon } from '@/components/icons/CustomIcons';
-import Link from 'next/link';
+import { Link } from '@/lib/navigation';
 
 interface TeamStats {
   id: string;

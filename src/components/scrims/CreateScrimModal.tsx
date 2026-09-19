@@ -19,6 +19,9 @@ import { supabase } from '@/lib/supabase';
 import { Team, Profile, ScrimLobby } from '@/lib/types';
 import { GameSearchInput } from '@/components/GameSearchInput';
 import { CustomSelect } from '@/components/CustomSelect';
+import { dispatchScrimCreatedDiscord } from '@/lib/discordDispatcher';
+import { Button } from '@/components/ui';
+import { triggerHaptic } from '@/lib/haptics';
 
 interface CreateScrimModalProps {
   isOpen: boolean;
@@ -97,6 +100,12 @@ export function CreateScrimModal({
 
       if (error) throw error;
       if (data) {
+        triggerHaptic('scrimMatch');
+        if (data.host_team) {
+          dispatchScrimCreatedDiscord(data.host_team as Team, data as ScrimLobby).catch((err) =>
+            console.error('Discord dispatch error on scrim create:', err)
+          );
+        }
         onSuccess(data as ScrimLobby);
         onClose();
       }
@@ -110,11 +119,11 @@ export function CreateScrimModal({
 
   return createPortal(
     <div 
-      className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-6 bg-black/90 backdrop-blur-md"
+      className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-6 bg-black/95"
       onClick={onClose}
     >
       <div 
-        className="w-full max-w-2xl modal-animate rounded-3xl flex flex-col overflow-hidden text-right text-white border border-white/15 bg-[#0e0e0e] shadow-[0_25px_60px_rgba(0,0,0,0.95)]"
+        className="w-full max-w-2xl modal-animate rounded-3xl flex flex-col overflow-hidden text-right text-white border border-white/15 bg-[#0e0e0e] shadow-sm"
         dir="rtl"
         onClick={(e) => e.stopPropagation()}
       >
@@ -141,7 +150,7 @@ export function CreateScrimModal({
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4 overflow-y-auto max-h-[75vh]">
           {errorMsg && (
-            <div className="p-3 rounded-xl bg-red-950/50 border border-red-500/40 text-red-300 text-xs font-bold">
+            <div className="p-3 rounded-xl bg-white/10 border border-white/20 text-white text-xs font-bold">
               {errorMsg}
             </div>
           )}
@@ -164,10 +173,10 @@ export function CreateScrimModal({
                       type="button"
                       onClick={() => setSelectedTeamId(t.id)}
                       className={`flex items-center gap-3 p-3 rounded-2xl border text-right transition ${
-                        selectedTeamId === t.id
-                          ? 'bg-white text-black border-white shadow-md'
-                          : 'bg-[#141414] border-white/10 text-white hover:border-white/30'
-                      }`}
+ selectedTeamId === t.id
+ ? 'bg-white text-black border-white shadow-md'
+ : 'bg-[#141414] border-white/10 text-white hover:border-white/30'
+ }`}
                     >
                       <div className="w-8 h-8 rounded-xl bg-black overflow-hidden flex items-center justify-center shrink-0 border border-white/15">
                         {t.logo_url ? (
@@ -245,34 +254,34 @@ export function CreateScrimModal({
                     type="button"
                     onClick={() => setTimingType('now')}
                     className={`py-2.5 px-3 rounded-xl text-xs font-black border transition ${
-                      timingType === 'now'
-                        ? 'bg-emerald-500 text-black border-emerald-400 shadow-md'
-                        : 'bg-[#141414] border-white/10 text-zinc-300 hover:text-white'
-                    }`}
+ timingType === 'now'
+ ? 'bg-white text-black border-white shadow-md font-black'
+ : 'bg-[#141414] border-white/10 text-zinc-300 hover:text-white'
+ }`}
                   >
-                    ⚡ الآن فوراً (Live)
+                    الآن فوراً (Live)
                   </button>
                   <button
                     type="button"
                     onClick={() => setTimingType('tonight')}
                     className={`py-2.5 px-3 rounded-xl text-xs font-black border transition ${
-                      timingType === 'tonight'
-                        ? 'bg-white text-black border-white shadow-md'
-                        : 'bg-[#141414] border-white/10 text-zinc-300 hover:text-white'
-                    }`}
+ timingType === 'tonight'
+ ? 'bg-white text-black border-white shadow-md'
+ : 'bg-[#141414] border-white/10 text-zinc-300 hover:text-white'
+ }`}
                   >
-                    🌙 الليلة (خلال ساعتين)
+                    الليلة (خلال ساعتين)
                   </button>
                   <button
                     type="button"
                     onClick={() => setTimingType('custom')}
                     className={`py-2.5 px-3 rounded-xl text-xs font-black border transition ${
-                      timingType === 'custom'
-                        ? 'bg-white text-black border-white shadow-md'
-                        : 'bg-[#141414] border-white/10 text-zinc-300 hover:text-white'
-                    }`}
+ timingType === 'custom'
+ ? 'bg-white text-black border-white shadow-md'
+ : 'bg-[#141414] border-white/10 text-zinc-300 hover:text-white'
+ }`}
                   >
-                    📅 وقت مخصص
+                    وقت مخصص
                   </button>
                 </div>
               </div>
@@ -291,21 +300,25 @@ export function CreateScrimModal({
 
               {/* Actions */}
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="md"
                   onClick={onClose}
-                  className="px-4 py-2.5 btn-3d-dark text-zinc-300 hover:text-white rounded-xl text-xs font-bold transition"
                 >
                   إلغاء
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
-                  disabled={isLoading || !selectedTeamId}
-                  className="px-6 py-2.5 btn-3d-primary text-black rounded-xl text-xs font-extrabold flex items-center gap-2 transition disabled:opacity-50 shadow-md"
+                  variant="primary"
+                  size="md"
+                  isLoading={isLoading}
+                  disabled={!selectedTeamId}
+                  icon={<Swords className="w-4 h-4" />}
+                  className="font-extrabold"
                 >
-                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin text-black" /> : <Swords className="w-4 h-4 text-black" />}
-                  <span>نشر غرفة التحدي في الساحة</span>
-                </button>
+                  نشر غرفة التحدي في الساحة
+                </Button>
               </div>
             </>
           )}

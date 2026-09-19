@@ -185,7 +185,7 @@ export function GameSearchSelect({
 
       {/* Single Mode: Active Selected Card */}
       {mode === 'single' && selectedValues.length > 0 && !isOpen ? (
-        <div className="flex items-center justify-between p-2.5 rounded-2xl border border-white/20 bg-[#121212] shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_4px_12px_rgba(0,0,0,0.7)]">
+        <div className="flex items-center justify-between p-2.5 rounded-2xl border border-white/20 bg-[#121212] shadow-sm">
           <div className="flex items-center gap-3 truncate">
             <div className="w-10 h-10 rounded-xl bg-[#1c1c1c] text-white flex items-center justify-center shrink-0 border border-white/20 shadow-sm">
               <Gamepad2 className="w-5 h-5 text-white" />
@@ -240,10 +240,10 @@ export function GameSearchSelect({
             }}
             placeholder={placeholder}
             className={`w-full text-xs p-2.5 pr-9 pl-8 rounded-xl border transition-all duration-200 outline-none ${
-              isOpen
-                ? 'border-white/50 ring-1 ring-white/30 bg-[#080808] text-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)]'
-                : 'border-white/12 bg-[#080808] text-zinc-200 hover:border-white/25 shadow-[inset_0_1px_3px_rgba(0,0,0,0.8)]'
-            }`}
+ isOpen
+ ? 'border-white/50 ring-1 ring-white/30 bg-[#080808] text-white shadow-sm'
+ : 'border-white/12 bg-[#080808] text-zinc-200 hover:border-white/25 shadow-sm'
+ }`}
           />
 
           {query && (
@@ -263,7 +263,7 @@ export function GameSearchSelect({
 
       {/* Dropdown Results list */}
       {isOpen && (
-        <div className="absolute z-50 mt-1.5 w-full bg-[#0e0e0e] rounded-2xl border border-white/15 shadow-[0_20px_50px_rgba(0,0,0,0.95)] overflow-hidden py-2 max-h-80 overflow-y-auto modal-animate">
+        <div className="absolute z-50 mt-1.5 w-full bg-[#0e0e0e] rounded-2xl border border-white/15 shadow-sm overflow-hidden py-2 max-h-80 overflow-y-auto modal-animate">
           <div className="px-3 py-1.5 text-[10px] font-extrabold text-zinc-400 flex items-center justify-between border-b border-white/10 mb-1">
             <span>نتائج البحث:</span>
             {isLoading && <span className="text-white">جاري البحث...</span>}
@@ -294,26 +294,26 @@ export function GameSearchSelect({
                     type="button"
                     onClick={() => handleSelectGame(g.name)}
                     className={`w-full flex items-center justify-between p-2 rounded-xl text-right transition group ${
-                      selected
-                        ? 'bg-white text-black font-extrabold'
-                        : 'hover:bg-white/10 text-zinc-200'
-                    }`}
+ selected
+ ? 'bg-white text-black font-extrabold'
+ : 'hover:bg-white/10 text-zinc-200'
+ }`}
                   >
                     <div className="flex items-center gap-3 truncate">
                       <div className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 ${
-                        selected ? 'bg-black text-white border-black' : 'bg-[#181818] border-white/10 text-zinc-400'
-                      }`}>
+ selected ? 'bg-black text-white border-black' : 'bg-[#181818] border-white/10 text-zinc-400'
+ }`}>
                         <Gamepad2 className="w-4 h-4" />
                       </div>
                       <div className="truncate">
                         <div className={`text-xs font-bold transition truncate ${
-                          selected ? 'text-black' : 'text-white group-hover:text-white'
-                        }`}>
+ selected ? 'text-black' : 'text-white group-hover:text-white'
+ }`}>
                           {g.name}
                         </div>
                         <div className={`text-[10px] font-medium truncate ${
-                          selected ? 'text-zinc-700' : 'text-zinc-400'
-                        }`}>
+ selected ? 'text-zinc-700' : 'text-zinc-400'
+ }`}>
                           {g.category || 'غلاف رسمي'} {g.year ? `• ${g.year}` : ''}
                         </div>
                       </div>
@@ -372,12 +372,12 @@ export function GameSearchSelect({
                     }
                   }}
                   className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition ${
-                    isAdded
-                      ? 'bg-white text-black shadow-xs'
-                      : 'bg-[#0a0a0a] hover:bg-white/10 text-zinc-300 border border-white/10'
-                  }`}
+ isAdded
+ ? 'bg-white text-black shadow-xs'
+ : 'bg-[#0a0a0a] hover:bg-white/10 text-zinc-300 border border-white/10'
+ }`}
                 >
-                  {isAdded ? `✓ ${sug}` : `+ ${sug}`}
+                  {isAdded ? sug : `+ ${sug}`}
                 </button>
               );
             })}

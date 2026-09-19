@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
+import { useParams, useRouter } from '@/lib/navigation';
+import Link from '@/lib/navigation';
 import { 
   Shield, 
   Trophy, 
@@ -21,7 +21,8 @@ import {
   Sparkles,
   Gamepad2,
   FileText,
-  AlertCircle
+  AlertCircle,
+  MessageSquare
 } from 'lucide-react';
 import { TeamsIcon, MessagesIcon, SwordsIcon } from '@/components/icons/CustomIcons';
 import { supabase } from '@/lib/supabase';
@@ -30,7 +31,7 @@ import { PostCard } from '@/components/PostCard';
 import { TeamManagementModal } from '@/components/TeamManagementModal';
 import { ApplyToTeamModal } from '@/components/ApplyToTeamModal';
 import { MatchScoreboardCard } from '@/components/MatchScoreboardCard';
-import { extractDominantColor } from '@/lib/colorExtractor';
+import { Button, Badge, Card } from '@/components/ui';
 
 export default function TeamDetailPage() {
   const params = useParams();
@@ -38,7 +39,6 @@ export default function TeamDetailPage() {
   const teamId = params?.id as string;
 
   const [team, setTeam] = useState<Team | null>(null);
-  const [teamColor, setTeamColor] = useState<string>('rgb(99, 102, 241)');
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [roles, setRoles] = useState<TeamRole[]>([]);
   const [matches, setMatches] = useState<TeamMatch[]>([]);
@@ -81,9 +81,6 @@ export default function TeamDetailPage() {
 
       if (teamData) {
         setTeam(teamData as Team);
-        if (teamData.logo_url) {
-          extractDominantColor(teamData.logo_url).then((c) => setTeamColor(c));
-        }
       }
 
       // 2. Fetch Roles
@@ -159,11 +156,11 @@ export default function TeamDetailPage() {
   };
 
   if (isLoading) {
-    return <div className="card-clean p-12 text-center text-xs text-slate-400 bg-[#0f172a] border-slate-800">جاري تحميل بيانات وهوية الفريق...</div>;
+    return <div className="card-clean p-12 text-center text-xs text-zinc-400 bg-[#0a0a0a] border-white/15">جاري تحميل بيانات وهوية الفريق...</div>;
   }
 
   if (!team) {
-    return <div className="card-clean p-12 text-center text-xs text-slate-400 bg-[#0f172a] border-slate-800">لم يتم العثور على هذا الفريق.</div>;
+    return <div className="card-clean p-12 text-center text-xs text-zinc-400 bg-[#0a0a0a] border-white/15">لم يتم العثور على هذا الفريق.</div>;
   }
 
   // Permission helper: Check if user is Captain or has Manager permissions
@@ -173,22 +170,8 @@ export default function TeamDetailPage() {
   const isMember = !!currentMember;
 
   return (
-    <div className="relative min-h-[calc(100vh-4rem)]">
-      {/* Top-to-Bottom Ambient Team Color Gradient (Extended Deep Length) */}
-      <div 
-        className="fixed top-0 left-0 right-0 h-[1200px] pointer-events-none z-0 transition-opacity duration-1000 ease-out"
-        style={{
-          background: `radial-gradient(ellipse 110% 75% at 50% -10%, ${teamColor.replace('rgb', 'rgba').replace(')', ', 0.45)')} 0%, ${teamColor.replace('rgb', 'rgba').replace(')', ', 0.20)')} 40%, ${teamColor.replace('rgb', 'rgba').replace(')', ', 0.06)')} 75%, rgba(0,0,0,0) 100%)`
-        }}
-      />
-      <div 
-        className="fixed top-0 left-0 right-0 h-[900px] pointer-events-none z-0 opacity-50 transition-opacity duration-1000 ease-out"
-        style={{
-          background: `linear-gradient(180deg, ${teamColor.replace('rgb', 'rgba').replace(')', ', 0.28)')} 0%, ${teamColor.replace('rgb', 'rgba').replace(')', ', 0.10)')} 60%, rgba(0,0,0,0) 100%)`
-        }}
-      />
-
-      <div className="max-w-5xl mx-auto py-4 space-y-6 text-right relative z-10" dir="rtl">
+    <div className="relative min-h-[calc(100vh-4rem)] bg-black">
+      <div className="layout-container py-4 space-y-6 text-right relative z-10" dir="rtl">
         {/* Back Link */}
         <div className="flex items-center justify-between">
           <Link href="/teams" className="inline-flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white transition">
@@ -201,10 +184,10 @@ export default function TeamDetailPage() {
               href={team.discord_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#5865F2] hover:bg-[#4752C4] text-white text-xs font-bold shadow-xs transition"
             >
-              <span>ديسكورد الفريق</span>
-              <ExternalLink className="w-3.5 h-3.5" />
+              <Button variant="secondary" size="xs" icon={<ExternalLink className="w-3.5 h-3.5" />}>
+                <span>ديسكورد الفريق</span>
+              </Button>
             </a>
           )}
         </div>
@@ -212,19 +195,14 @@ export default function TeamDetailPage() {
         {actionMsg && (
           <div className="p-4 rounded-2xl bg-white text-black text-xs font-bold flex items-center justify-between animate-in fade-in shadow-sm">
             <span>{actionMsg}</span>
-            <button onClick={() => setActionMsg('')} className="text-black font-extrabold hover:underline">
+            <button onClick={() => setActionMsg('')} className="text-black font-extrabold hover:underline cursor-pointer">
               إغلاق
             </button>
           </div>
         )}
 
         {/* Main Team Header Card */}
-        <div 
-          className="card-3d overflow-hidden text-white transition-all duration-500"
-          style={{
-            boxShadow: `0 20px 40px -15px rgba(0, 0, 0, 0.9), 0 0 35px -10px ${teamColor.replace('rgb', 'rgba').replace(')', ', 0.25)')}`
-          }}
-        >
+        <Card variant="elevated" className="overflow-hidden text-white transition-all duration-500 shadow-2xl p-0">
           {/* Banner */}
           <div className="h-48 sm:h-64 relative bg-[#050505]">
             <img
@@ -234,210 +212,185 @@ export default function TeamDetailPage() {
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
 
-          {/* Top Badges */}
-          <div className="absolute top-4 right-4 flex items-center gap-2">
-            <span className="px-3 py-1 rounded-xl bg-black/90 backdrop-blur text-white text-xs font-mono font-extrabold border border-white/20 shadow-md">
-              [{team.tag}]
-            </span>
-            {team.is_exclusive && (
-              <span className="px-3 py-1 rounded-xl bg-white text-black backdrop-blur text-xs font-extrabold flex items-center gap-1 shadow-md">
-                <Lock className="w-3 h-3" />
-                <span>عضوية حصرية</span>
-              </span>
+            {/* Top Badges */}
+            <div className="absolute top-4 right-4 flex items-center gap-2">
+              <Badge variant="solid" size="sm">
+                [{team.tag}]
+              </Badge>
+              {team.is_exclusive && (
+                <Badge variant="solid" size="sm" icon={<Lock className="w-3 h-3 text-black" />}>
+                  <span>عضوية حصرية</span>
+                </Badge>
+              )}
+            </div>
+
+            <div className="absolute top-4 left-4">
+              <Badge
+                variant={team.recruitment_status === 'open' ? 'solid' : 'default'}
+                size="sm"
+              >
+                {team.recruitment_status === 'open'
+                  ? 'التجارب مفتوحة'
+                  : team.recruitment_status === 'invite_only'
+                  ? 'بالدعوة فقط'
+                  : 'التقديم مغلق'}
+              </Badge>
+            </div>
+          </div>
+
+          {/* Profile Info & Actions */}
+          <div className="p-6 pt-0 relative">
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between -mt-12 sm:-mt-16 mb-4 gap-4">
+              {/* Logo & Titles */}
+              <div className="flex items-end gap-4">
+                <img
+                  src={team.logo_url || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=200'}
+                  alt={team.name}
+                  className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl object-cover border-4 border-black shadow-sm bg-black shrink-0"
+                />
+                <div className="mb-1 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-xl sm:text-2xl font-black text-white">
+                      {team.name}
+                    </h1>
+                    {team.is_verified && <CheckCircle2 className="w-5 h-5 text-white shrink-0" />}
+                  </div>
+
+                  <div className="flex items-center gap-2 text-xs text-zinc-400 font-semibold flex-wrap">
+                    <span className="flex items-center gap-1 text-zinc-300">
+                      <MapPin className="w-3.5 h-3.5 text-zinc-400" />
+                      {team.city}
+                    </span>
+                    <span>•</span>
+                    <span>{members.length} أعضاء مسجلين</span>
+                    {team.games && team.games.length > 0 && (
+                      <>
+                        <span>•</span>
+                        <span className="text-white font-extrabold">{team.games.join(' • ')}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                {/* Captain / Manager Console Button */}
+                {isManager && (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    icon={<Settings className="w-4 h-4 text-black" />}
+                    onClick={() => setIsManagementOpen(true)}
+                  >
+                    <span>لوحة إدارة الفريق</span>
+                  </Button>
+                )}
+
+                {/* Player Apply Button */}
+                {!isMember && team.recruitment_status !== 'closed' && (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    icon={<UserPlus className="w-4 h-4 text-black" />}
+                    onClick={() => setIsApplyOpen(true)}
+                  >
+                    <span>تقديم طلب انضمام</span>
+                  </Button>
+                )}
+
+                {/* Leave Team Button */}
+                {isMember && !isCaptain && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    icon={<LogOut className="w-4 h-4" />}
+                    onClick={handleLeaveTeam}
+                  >
+                    <span>مغادرة الفريق</span>
+                  </Button>
+                )}
+
+                {/* Message Team Button */}
+                <Link href={`/messages?targetTeamId=${team.id}`}>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    icon={<MessagesIcon className="w-4 h-4" />}
+                  >
+                    <span>{isMember ? 'غرفة شات الفريق' : 'مراسلة الفريق'}</span>
+                  </Button>
+                </Link>
+              </div>
+            </div>
+
+            {/* Bio */}
+            {team.bio && (
+              <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed max-w-3xl mb-4 font-normal">
+                {team.bio}
+              </p>
+            )}
+
+            {/* Achievements */}
+            {team.achievements && team.achievements.length > 0 && (
+              <div className="border-t border-white/10 pt-3 flex items-center gap-2 overflow-x-auto">
+                <Trophy className="w-4 h-4 text-white shrink-0" />
+                <span className="text-xs font-bold text-zinc-300 shrink-0">الإنجازات:</span>
+                <div className="flex gap-2">
+                  {team.achievements.map((ach, idx) => (
+                    <Badge key={idx} variant="default" size="xs">
+                      <span>{ach.title}</span>
+                      <span className="text-zinc-400 font-mono text-[10px]">[{ach.year}]</span>
+                    </Badge>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
+        </Card>
 
-          <div className="absolute top-4 left-4">
-            <span
-              className={`px-3 py-1 rounded-xl text-xs font-extrabold backdrop-blur shadow-md ${
-                team.recruitment_status === 'open'
-                  ? 'bg-white text-black'
-                  : team.recruitment_status === 'invite_only'
-                  ? 'bg-white/20 text-white border border-white/20'
-                  : 'bg-black/80 text-zinc-400 border border-white/10'
-              }`}
-            >
-              {team.recruitment_status === 'open'
-                ? 'التجارب مفتوحة'
-                : team.recruitment_status === 'invite_only'
-                ? 'بالدعوة فقط'
-                : 'التقديم مغلق'}
-            </span>
-          </div>
+        {/* Tabs Navigation */}
+        <div className="flex bg-[#080808] border border-white/10 shadow-inner rounded-2xl p-1.5 gap-1 sm:gap-2">
+          <Button
+            variant={activeTab === 'roster' ? 'primary' : 'ghost'}
+            size="sm"
+            className="flex-1"
+            icon={<TeamsIcon className="w-4 h-4" />}
+            onClick={() => setActiveTab('roster')}
+          >
+            <span>التشكيلة والرتب ({members.length})</span>
+          </Button>
+
+          <Button
+            variant={activeTab === 'rules' ? 'primary' : 'ghost'}
+            size="sm"
+            className="flex-1"
+            icon={<Shield className="w-4 h-4" />}
+            onClick={() => setActiveTab('rules')}
+          >
+            <span>القوانين والشروط</span>
+          </Button>
+
+          <Button
+            variant={activeTab === 'matches' ? 'primary' : 'ghost'}
+            size="sm"
+            className="flex-1"
+            icon={<SwordsIcon className="w-4 h-4" />}
+            onClick={() => setActiveTab('matches')}
+          >
+            <span>سجل المباريات ({matches.length})</span>
+          </Button>
+
+          <Button
+            variant={activeTab === 'feed' ? 'primary' : 'ghost'}
+            size="sm"
+            className="flex-1"
+            icon={<FileText className="w-4 h-4" />}
+            onClick={() => setActiveTab('feed')}
+          >
+            <span>المنشورات ({posts.length})</span>
+          </Button>
         </div>
-
-        {/* Profile Info & Actions */}
-        <div className="p-6 pt-0 relative">
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between -mt-12 sm:-mt-16 mb-4 gap-4">
-            {/* Logo & Titles */}
-            <div className="flex items-end gap-4">
-              <img
-                src={team.logo_url || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=200'}
-                alt={team.name}
-                className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl object-cover border-4 border-black shadow-[0_10px_25px_rgba(0,0,0,0.9)] bg-black shrink-0"
-              />
-              <div className="mb-1 space-y-1">
-                <div className="flex items-center gap-2">
-                  <h1 className="text-xl sm:text-2xl font-black text-white">
-                    {team.name}
-                  </h1>
-                  {team.is_verified && <CheckCircle2 className="w-5 h-5 text-white shrink-0" />}
-                </div>
-
-                <div className="flex items-center gap-2 text-xs text-zinc-400 font-semibold flex-wrap">
-                  <span className="flex items-center gap-1 text-zinc-300">
-                    <MapPin className="w-3.5 h-3.5 text-zinc-400" />
-                    {team.city}
-                  </span>
-                  <span>•</span>
-                  <span>{members.length} أعضاء مسجلين</span>
-                  {team.games && team.games.length > 0 && (
-                    <>
-                      <span>•</span>
-                      <span className="text-white font-extrabold">{team.games.join(' • ')}</span>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-              {/* Captain / Manager Console Button */}
-              {isManager && (
-                <button
-                  type="button"
-                  onClick={() => setIsManagementOpen(true)}
-                  className="px-4 py-2.5 btn-3d-primary text-black rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition"
-                >
-                  <Settings className="w-4 h-4 text-black" />
-                  <span>لوحة إدارة الفريق</span>
-                </button>
-              )}
-
-              {/* Player Apply Button */}
-              {!isMember && team.recruitment_status !== 'closed' && (
-                <button
-                  type="button"
-                  onClick={() => setIsApplyOpen(true)}
-                  className="px-4 py-2.5 btn-3d-primary text-black rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition"
-                >
-                  <UserPlus className="w-4 h-4 text-black" />
-                  <span>تقديم طلب انضمام</span>
-                </button>
-              )}
-
-              {/* Leave Team Button */}
-              {isMember && !isCaptain && (
-                <button
-                  type="button"
-                  onClick={handleLeaveTeam}
-                  className="px-3.5 py-2.5 btn-3d-dark hover:border-white/30 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
-                >
-                  <LogOut className="w-4 h-4" />
-                  <span>مغادرة الفريق</span>
-                </button>
-              )}
-
-              {/* Message Team Button */}
-              {isMember ? (
-                <Link
-                  href={`/messages?targetTeamId=${team.id}`}
-                  className="px-4 py-2.5 btn-3d-dark text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
-                >
-                  <MessagesIcon className="w-4 h-4" />
-                  <span>غرفة شات الفريق</span>
-                </Link>
-              ) : (
-                <Link
-                  href={`/messages?targetTeamId=${team.id}`}
-                  className="px-4 py-2.5 btn-3d-dark text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
-                >
-                  <MessagesIcon className="w-4 h-4" />
-                  <span>مراسلة الفريق</span>
-                </Link>
-              )}
-            </div>
-          </div>
-
-          {/* Bio */}
-          {team.bio && (
-            <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed max-w-3xl mb-4 font-normal">
-              {team.bio}
-            </p>
-          )}
-
-          {/* Achievements */}
-          {team.achievements && team.achievements.length > 0 && (
-            <div className="border-t border-white/10 pt-3 flex items-center gap-2 overflow-x-auto">
-              <Trophy className="w-4 h-4 text-white shrink-0" />
-              <span className="text-xs font-bold text-zinc-300 shrink-0">الإنجازات:</span>
-              <div className="flex gap-2">
-                {team.achievements.map((ach, idx) => (
-                  <span
-                    key={idx}
-                    className="px-2.5 py-1 rounded-xl bg-[#080808] border border-white/15 text-[11px] font-bold text-white flex items-center gap-1.5 shrink-0 shadow-sm"
-                  >
-                    <span>{ach.title}</span>
-                    <span className="text-zinc-400 font-mono text-[10px]">[{ach.year}]</span>
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Tabs Navigation */}
-      <div className="flex bg-[#080808] border border-white/10 shadow-inner rounded-2xl p-1.5 gap-1 sm:gap-2">
-        <button
-          onClick={() => setActiveTab('roster')}
-          className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition ${
-            activeTab === 'roster'
-              ? 'bg-white text-black shadow-sm'
-              : 'text-zinc-400 hover:bg-white/5 hover:text-white'
-          }`}
-        >
-          <TeamsIcon className="w-4 h-4" />
-          <span>التشكيلة والرتب ({members.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('rules')}
-          className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition ${
-            activeTab === 'rules'
-              ? 'bg-white text-black shadow-sm'
-              : 'text-zinc-400 hover:bg-white/5 hover:text-white'
-          }`}
-        >
-          <Shield className="w-4 h-4" />
-          <span>القوانين والشروط</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('matches')}
-          className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition ${
-            activeTab === 'matches'
-              ? 'bg-white text-black shadow-sm'
-              : 'text-zinc-400 hover:bg-white/5 hover:text-white'
-          }`}
-        >
-          <SwordsIcon className="w-4 h-4" />
-          <span>سجل المباريات ({matches.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('feed')}
-          className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition ${
-            activeTab === 'feed'
-              ? 'bg-white text-black shadow-sm'
-              : 'text-zinc-400 hover:bg-white/5 hover:text-white'
-          }`}
-        >
-          <FileText className="w-4 h-4" />
-          <span>المنشورات ({posts.length})</span>
-        </button>
-      </div>
 
       {/* TAB CONTENT 1: ROSTER WITH DISCORD ROLES */}
       {activeTab === 'roster' && (
@@ -493,12 +446,9 @@ export default function TeamDetailPage() {
                     {/* Discord Role Badge */}
                     {member.role ? (
                       <div className="mt-1">
-                        <span
-                          className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold text-white shadow-xs"
-                          style={{ backgroundColor: member.role.color || '#ef4444' }}
-                        >
+                        <Badge size="xs" color={member.role.color || '#ffffff'}>
                           {member.role.name}
-                        </span>
+                        </Badge>
                       </div>
                     ) : (
                       <div className="text-[10px] text-zinc-500 mt-1">عضو في الفريق</div>
@@ -512,6 +462,17 @@ export default function TeamDetailPage() {
                       </span>
                     </div>
                   </div>
+
+                  {/* Direct Message button */}
+                  {member.user?.id && member.user.id !== currentUser?.id && (
+                    <Link
+                      href={`/messages?recipientId=${member.user.id}`}
+                      className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition shrink-0"
+                      title={`مراسلة ${member.user?.full_name}`}
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                    </Link>
+                  )}
                 </div>
               ))}
             </div>
@@ -658,7 +619,6 @@ export default function TeamDetailPage() {
       {isManagementOpen && (
         <TeamManagementModal
           team={team}
-          teamColor={teamColor}
           isOpen={isManagementOpen}
           onClose={() => setIsManagementOpen(false)}
           onUpdate={() => {

@@ -1,3 +1,4 @@
+import { Icon } from '@/components/ui/Icon';
 'use client';
 
 import React, { useState } from 'react';
@@ -18,6 +19,7 @@ import {
 } from 'lucide-react';
 import { ScrimLobby, Team, Profile, ScrimChallenge } from '@/lib/types';
 import { TeamsIcon, SwordsIcon } from '@/components/icons/CustomIcons';
+import { Button, Badge, Card } from '@/components/ui';
 
 interface ScrimLobbyCardProps {
   lobby: ScrimLobby;
@@ -70,35 +72,24 @@ export function ScrimLobbyCard({
   };
 
   return (
-    <div className="relative overflow-hidden rounded-3xl bg-[#090909] border border-white/15 p-5 shadow-[0_15px_35px_rgba(0,0,0,0.85)] hover:border-white/30 transition-all group">
+    <Card variant="interactive" className="p-5 relative overflow-hidden group">
       {/* Background Glow */}
       <div 
-        className={`absolute inset-0 pointer-events-none opacity-15 transition-opacity ${
-          lobby.status === 'in_progress'
-            ? 'bg-gradient-to-r from-amber-500/20 via-transparent to-amber-500/20'
-            : lobby.status === 'accepted'
-            ? 'bg-gradient-to-r from-blue-500/20 via-transparent to-blue-500/20'
-            : lobby.status === 'pending_verification'
-            ? 'bg-gradient-to-r from-purple-500/20 via-transparent to-purple-500/20'
-            : isLiveNow
-            ? 'bg-gradient-to-b from-emerald-500/20 via-transparent to-transparent'
-            : 'bg-gradient-to-b from-white/5 to-transparent'
-        }`}
+        className="absolute inset-0 pointer-events-none opacity-10 bg-gradient-to-b from-white/10 to-transparent"
       />
 
       {/* Top Meta Header */}
       <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-4 text-xs">
         <div className="flex items-center gap-2 flex-wrap">
           {/* Game badge */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white text-black font-black text-[11px] shadow-xs">
-            <Gamepad2 className="w-3.5 h-3.5" />
+          <Badge variant="solid" size="sm" icon={<Gamepad2 className="w-3.5 h-3.5" />}>
             <span>{lobby.game}</span>
-          </div>
+          </Badge>
 
           {/* Format */}
-          <span className="px-2 py-0.5 rounded-md bg-white/10 text-white font-mono text-[10px] font-bold border border-white/15">
+          <Badge variant="default" size="xs">
             {lobby.format}
-          </span>
+          </Badge>
 
           {/* Server */}
           <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-zinc-400 font-medium">
@@ -110,30 +101,35 @@ export function ScrimLobbyCard({
         {/* Status / Timing Badge */}
         <div className="flex items-center gap-2">
           {lobby.status === 'open' && (
-            <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-black border border-emerald-500/30">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+            <Badge variant="solid" size="xs">
+              <span className="w-1.5 h-1.5 rounded-full bg-black animate-ping" />
               <span>{isLiveNow ? 'مفتوح للعب الآن' : 'موعد مجدول'}</span>
-            </span>
+            </Badge>
           )}
           {lobby.status === 'accepted' && (
-            <span className="px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400 text-[10px] font-black border border-blue-500/30">
+            <Badge variant="default" size="xs">
               تم قبول التحدي • بانتظار الجاهزية
-            </span>
+            </Badge>
           )}
           {lobby.status === 'in_progress' && (
-            <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-[10px] font-black border border-amber-500/30">
-              المباراة جارية الآن ⚔️
-            </span>
+            <Badge variant="live" size="xs">
+              المباراة جارية الآن
+            </Badge>
           )}
           {lobby.status === 'pending_verification' && (
-            <span className="px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-400 text-[10px] font-black border border-purple-500/30 animate-pulse">
+            <Badge variant="outline" size="xs" className="animate-pulse">
               بانتظار تأكيد النتيجة ⏳
-            </span>
+            </Badge>
+          )}
+          {lobby.status === 'disputed' && (
+            <Badge variant="solid" size="xs">
+              نزاع قيد التحكيم
+            </Badge>
           )}
           {lobby.status === 'completed' && (
-            <span className="px-2.5 py-0.5 rounded-full bg-white/10 text-zinc-300 text-[10px] font-bold">
+            <Badge variant="default" size="xs">
               مباراة منتهية وموثقة
-            </span>
+            </Badge>
           )}
         </div>
       </div>
@@ -146,8 +142,8 @@ export function ScrimLobbyCard({
           <div className="truncate">
             <div className="text-xs sm:text-base font-black text-white truncate flex items-center justify-end gap-1.5">
               {(hostTeam?.current_streak || 0) >= 3 && (
-                <span className="text-xs font-black text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded flex items-center gap-0.5 border border-amber-500/20" title={`متصل يومياً: ${hostTeam?.current_streak} أيام`}>
-                  🔥 {hostTeam?.current_streak}
+                <span className="text-xs font-black text-white bg-white/10 px-1.5 py-0.5 rounded flex items-center gap-0.5 border border-white/20" title={`متصل يومياً: ${hostTeam?.current_streak} أيام`}>
+                  <Icon name="local_fire_department" size={13} filled className="inline-block align-middle ml-1" />{hostTeam?.current_streak}
                 </span>
               )}
               <span>{hostTeam?.name || 'فريق غير معروف'}</span>
@@ -194,8 +190,8 @@ export function ScrimLobbyCard({
                 <div className="text-xs sm:text-base font-black text-white truncate flex items-center gap-1.5">
                   <span>{guestTeam.name}</span>
                   {(guestTeam.current_streak || 0) >= 3 && (
-                    <span className="text-xs font-black text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded flex items-center gap-0.5 border border-amber-500/20" title={`متصل يومياً: ${guestTeam.current_streak} أيام`}>
-                      🔥 {guestTeam.current_streak}
+                    <span className="text-xs font-black text-white bg-white/10 px-1.5 py-0.5 rounded flex items-center gap-0.5 border border-white/20" title={`متصل يومياً: ${guestTeam.current_streak} أيام`}>
+                      <Icon name="local_fire_department" size={13} filled className="inline-block align-middle ml-1" />{guestTeam.current_streak}
                     </span>
                   )}
                 </div>
@@ -206,7 +202,7 @@ export function ScrimLobbyCard({
             </>
           ) : (
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl border-2 border-dashed border-white/20 bg-black/50 flex items-center justify-center shrink-0">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl border-2 border-dashed border-white/20 bg-black/95 flex items-center justify-center shrink-0">
                 <SwordsIcon className="w-5 h-5 text-zinc-600" />
               </div>
               <div>
@@ -233,7 +229,7 @@ export function ScrimLobbyCard({
           )}
           {lobby.notes && (
             <span className="text-zinc-400 truncate max-w-xs">
-              💬 {lobby.notes}
+              {lobby.notes}
             </span>
           )}
         </div>
@@ -245,14 +241,14 @@ export function ScrimLobbyCard({
           {isHost && lobby.status === 'open' && (
             <>
               {pendingChallenges.length > 0 ? (
-                <button
-                  type="button"
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={<Users className="w-3.5 h-3.5" />}
                   onClick={() => onOpenChallengesQueue(lobby)}
-                  className="px-4 py-2 bg-amber-400 hover:bg-amber-300 text-black rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md animate-bounce"
                 >
-                  <Users className="w-3.5 h-3.5" />
                   <span>طلبات التحدي الواردة ({pendingChallenges.length}) • اختر الخصم</span>
-                </button>
+                </Button>
               ) : (
                 <span className="text-[11px] text-zinc-500 font-bold px-2">
                   بانتظار طلبات التحدي...
@@ -260,13 +256,14 @@ export function ScrimLobbyCard({
               )}
 
               {onCancel && (
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-zinc-400 hover:text-white"
                   onClick={() => onCancel(lobby.id)}
-                  className="px-3 py-2 btn-3d-dark text-zinc-400 hover:text-red-400 rounded-xl text-xs font-bold transition"
                 >
                   إلغاء التحدي
-                </button>
+                </Button>
               )}
             </>
           )}
@@ -275,10 +272,9 @@ export function ScrimLobbyCard({
           {!isHost && lobby.status === 'open' && (
             <>
               {mySentChallenge ? (
-                <span className="px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-bold flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 animate-spin" />
+                <Badge variant="outline" size="sm" icon={<Clock className="w-3.5 h-3.5" />}>
                   <span>تم إرسال طلب التحدي • بانتظار موافقة المستضيف</span>
-                </span>
+                </Badge>
               ) : availableGuestTeams.length > 0 ? (
                 <div className="flex items-center gap-2">
                   {availableGuestTeams.length > 1 && (
@@ -294,15 +290,15 @@ export function ScrimLobbyCard({
                       ))}
                     </select>
                   )}
-                  <button
-                    type="button"
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    icon={<Swords className="w-3.5 h-3.5" />}
                     onClick={handleSend}
-                    disabled={isSending}
-                    className="px-4 py-2 btn-3d-primary text-black rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md hover:scale-105 transition"
+                    isLoading={isSending}
                   >
-                    <Swords className="w-3.5 h-3.5" />
-                    <span>إرسال طلب تحدي بفريق [{availableGuestTeams[0]?.tag}]</span>
-                  </button>
+                    <span>إرسال طلب تحدي بفريق [{availableGuestTeams.find(t => t.id === selectedTeamForChallenge)?.tag || availableGuestTeams[0]?.tag}]</span>
+                  </Button>
                 </div>
               ) : null}
             </>
@@ -310,17 +306,17 @@ export function ScrimLobbyCard({
 
           {/* 3. Match Room entry (Accepted / In-Progress / Completed) */}
           {isParticipant && lobby.status !== 'open' && lobby.status !== 'cancelled' && (
-            <button
-              type="button"
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<Play className="w-3.5 h-3.5 fill-current" />}
               onClick={() => onOpenRoom(lobby)}
-              className="px-4 py-2 bg-white text-black rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md hover:bg-zinc-200 transition"
             >
-              <Play className="w-3.5 h-3.5 fill-black" />
               <span>دخول غرفة المباراة (Match Room)</span>
-            </button>
+            </Button>
           )}
         </div>
       </div>
-    </div>
+    </Card>
   );
 }

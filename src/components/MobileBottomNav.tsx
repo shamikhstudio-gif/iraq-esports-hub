@@ -1,65 +1,60 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
-import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
-import { 
-  PlusSquare,
-} from 'lucide-react';
-import { HomeIcon, TeamsIcon, MessagesIcon, SwordsIcon, BellIcon } from '@/components/icons/CustomIcons';
+import Link from '@/lib/navigation';
+import { usePathname, useSearchParams } from '@/lib/navigation';
+import { PlusSquare } from 'lucide-react';
+import { HomeIcon, TeamsIcon, MessagesIcon, SwordsIcon } from '@/components/icons/CustomIcons';
 import { supabase } from '@/lib/supabase';
 import { Profile } from '@/lib/types';
 import { CreatePostModal } from './CreatePostModal';
+import { AUTH_USER_KEY } from '@/lib/constants';
 
-interface NavItem {
-  name: string;
-  href?: string;
-  icon: any;
-  action?: () => void;
-  badge?: number;
-}
+import { Button, Badge } from '@/components/ui';
+
+type NavItemConfig =
+  | { name: string; href: string; icon: React.ElementType; badge?: number }
+  | { name: string; action: () => void; icon: React.ElementType };
 
 function MobileBottomNavContent() {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const currentType = searchParams.get('type');
+  useSearchParams(); // triggers Suspense boundary for searchParams
 
-  const [currentUser, setCurrentUser] = useState<Profile | null>(null);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   useEffect(() => {
-    fetchUserData();
+    fetchNotifCount();
   }, []);
 
-  const fetchUserData = async () => {
-    const savedUserId = typeof window !== 'undefined' ? localStorage.getItem('babylon_user_id') : null;
-    if (!savedUserId) {
-      setCurrentUser(null);
-      setUnreadCount(0);
-      return;
-    }
+  const fetchNotifCount = async () => {
+    const savedUserId = typeof window !== 'undefined' ? localStorage.getItem(AUTH_USER_KEY) : null;
+    if (!savedUserId) return;
 
     try {
-      const [profileRes, notifRes] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', savedUserId).single(),
-        supabase.from('notifications').select('*', { count: 'exact', head: true }).eq('user_id', savedUserId).eq('is_read', false),
-      ]);
-
-      if (profileRes.data) setCurrentUser(profileRes.data as Profile);
-      if (typeof notifRes.count === 'number') setUnreadCount(notifRes.count);
+      const { count } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', savedUserId)
+        .eq('is_read', false);
+      if (typeof count === 'number') setUnreadCount(count);
     } catch (err) {
-      console.error('Error fetching mobile bottom nav data:', err);
+      console.error('MobileBottomNav notif fetch error:', err);
     }
   };
 
-  const navItems: NavItem[] = [
+  const navItems: NavItemConfig[] = [
     { name: 'الرئيسية', href: '/', icon: HomeIcon },
     { name: 'الفرق', href: '/teams', icon: TeamsIcon },
     { name: 'نشر', action: () => setIsCreateModalOpen(true), icon: PlusSquare },
     { name: 'السكريمات', href: '/scrims', icon: SwordsIcon },
-    { name: 'الرسائل', href: '/messages', icon: MessagesIcon },
+    { name: 'الرسائل', href: '/messages', icon: MessagesIcon, badge: unreadCount },
   ];
+
+  // Hide bottom navigation completely when inside chat/messages screen so it does not overlay composer
+  if (pathname.startsWith('/messages')) {
+    return null;
+  }
 
   return (
     <>
@@ -67,25 +62,29 @@ function MobileBottomNavContent() {
         <div className="flex items-center justify-around h-12">
           {navItems.map((item, index) => {
             const Icon = item.icon;
-            const isActive = item.href ? (item.href === '/' ? pathname === '/' && (!currentType || currentType === 'all') : pathname.startsWith(item.href)) : false;
 
-            if (item.action) {
+            // Action button (e.g. create post)
+            if ('action' in item) {
               return (
-                <button
+                <Button
                   key={index}
+                  variant="ghost"
+                  size="icon-sm"
                   onClick={item.action}
-                  className="flex items-center justify-center p-2 text-zinc-400 hover:text-white transition"
+                  className="text-zinc-400 hover:text-white"
                   title={item.name}
                 >
                   <Icon className="w-6 h-6" />
-                </button>
+                </Button>
               );
             }
 
+            // Link button
+            const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
             return (
               <Link
                 key={index}
-                href={item.href!}
+                href={item.href}
                 prefetch={true}
                 title={item.name}
                 className={`relative flex items-center justify-center p-2 transition ${
@@ -93,11 +92,11 @@ function MobileBottomNavContent() {
                 }`}
               >
                 <Icon className="w-6 h-6" />
-                {Boolean(item.badge && item.badge > 0) && (
-                  <span className="absolute top-1 right-1 min-w-[14px] h-[14px] px-0.5 rounded-full bg-[#ed4956] text-white text-[9px] font-bold flex items-center justify-center">
-                    {item.badge}
+                {item.badge && item.badge > 0 ? (
+                  <span className="absolute top-0.5 right-2 min-w-[15px] h-[15px] px-1 bg-white text-black font-black text-[9px] leading-none rounded-full flex items-center justify-center border border-black shadow-sm pointer-events-none select-none">
+                    {item.badge > 99 ? '99+' : item.badge}
                   </span>
-                )}
+                ) : null}
               </Link>
             );
           })}
@@ -107,12 +106,7 @@ function MobileBottomNavContent() {
       <CreatePostModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        onPostCreated={() => {
-          setIsCreateModalOpen(false);
-          if (typeof window !== 'undefined' && pathname === '/') {
-            window.location.reload();
-          }
-        }}
+        onPostCreated={() => setIsCreateModalOpen(false)}
       />
     </>
   );

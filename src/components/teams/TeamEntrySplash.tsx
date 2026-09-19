@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
+import { Button } from '@/components/ui';
 
 interface SplashConfig {
   text?: string;
@@ -117,13 +118,15 @@ export function TeamEntrySplash({ config, teamName, teamLogo }: TeamEntrySplashP
         onClick={handleDismiss}
       >
         {/* Skip button */}
-        <button
-          className="absolute top-6 right-6 z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-white text-xs font-bold transition backdrop-blur-sm"
+        <Button
+          variant="ghost"
+          size="xs"
+          icon={<X className="w-3.5 h-3.5" />}
+          className="absolute top-6 right-6 z-10 rounded-full border border-white/15 bg-white/10 text-white"
           onClick={handleDismiss}
         >
-          <X className="w-3.5 h-3.5" />
           <span>تخطي</span>
-        </button>
+        </Button>
 
         {/* Content */}
         <div className={`flex flex-col items-center gap-6 text-center max-w-lg px-8 ${animationClass}`}>

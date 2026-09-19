@@ -28,6 +28,19 @@ export interface Profile {
   ebits_balance?: number;
   boost_cards_count?: number;
   ultra_hd_cards_count?: number;
+  contact_email?: string | null;
+  is_email_public?: boolean;
+  has_neon_frame?: boolean;
+  has_profile_studio?: boolean;
+  equipped_frame?: string;
+  equipped_effect?: string;
+  equipped_banner_fx?: string;
+  profile_theme?: string;
+  custom_status?: string | null;
+  custom_status_type?: 'online' | 'in_game' | 'streaming' | 'dnd';
+  featured_badge?: string | null;
+  notification_preferences?: any;
+  privacy_preferences?: any;
   created_at: string;
   team?: Team | null;
 }
@@ -99,6 +112,22 @@ export interface TeamMatch {
   match_date: string;
 }
 
+export interface DiscordWebhookChannel {
+  id: string;
+  name: string;
+  webhook_url: string;
+  mention?: string; // e.g. '@member', '@everyone', '@here', or custom text
+  is_enabled: boolean;
+  events: {
+    scrim_created: boolean;
+    match_completed: boolean;
+    war_room_alert: boolean;
+    team_posts: boolean;
+    roster_updates: boolean;
+  };
+  created_at?: string;
+}
+
 export interface Team {
   id: string;
   name: string;
@@ -117,6 +146,7 @@ export interface Team {
   min_rank?: string;
   voice_chat_required?: boolean;
   discord_url?: string;
+  discord_webhooks?: DiscordWebhookChannel[];
   achievements?: { title: string; year: string }[];
   current_streak?: number;
   last_match_date?: string | null;
@@ -173,7 +203,8 @@ export interface NotificationItem {
   user_id: string;
   type: 'new_follower' | 'first_warning' | 'account_suspended' | 'general' | 'message' | 'team_invite' | 'team_application';
   title: string;
-  description: string;
+  message?: string;
+  description?: string;
   actor_id?: string | null;
   suspension_days?: number | null;
   suspension_reason?: string | null;
@@ -187,13 +218,19 @@ export interface NotificationItem {
 export interface SupportTicket {
   id: string;
   user_id: string;
-  type: string;
+  type?: string;
   subject: string;
-  message: string;
-  status: 'pending' | 'resolved' | 'rejected';
+  message?: string;
+  description?: string;
+  status: 'pending' | 'resolved' | 'rejected' | 'open' | 'urgent';
+  priority?: 'normal' | 'high' | 'urgent';
+  category?: string;
+  lobby_id?: string | null;
   admin_notes?: string | null;
   created_at: string;
+  updated_at?: string;
   user?: Profile;
+  lobby?: ScrimLobby;
 }
 
 export interface ScrimLobby {
@@ -206,15 +243,22 @@ export interface ScrimLobby {
   server_region: string; // 'Bahrain', 'Dubai', 'Frankfurt', etc.
   min_rank?: string | null;
   scheduled_time: string;
-  status: 'open' | 'accepted' | 'in_progress' | 'pending_verification' | 'completed' | 'cancelled';
+  status: 'open' | 'accepted' | 'in_progress' | 'pending_verification' | 'disputed' | 'completed' | 'cancelled';
   room_code?: string | null;
   discord_channel?: string | null;
   selected_map?: string | null;
   banned_maps?: string[];
+  veto_turn?: 'host' | 'guest' | null;
   host_ready?: boolean;
   guest_ready?: boolean;
   host_score?: number | null;
   guest_score?: number | null;
+  proof_url?: string | null;
+  proof_notes?: string | null;
+  guest_proof_url?: string | null;
+  dispute_reason?: string | null;
+  disputed_by_team_id?: string | null;
+  disputed_at?: string | null;
   notes?: string | null;
   created_at: string;
   host_team?: Team;
@@ -243,4 +287,41 @@ export interface ScrimMercenary {
   expires_at: string;
   created_at: string;
   user?: Profile;
+}
+
+/**
+ * Unified avatar resolution helper (resolves contract drift across ProfileImg, avatar_url, image)
+ */
+export function resolveUserAvatar(user?: Partial<Profile> | Record<string, any> | null): string {
+  if (!user) return 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=200';
+  const u = user as any;
+  return (
+    u.avatar_url ||
+    u.avatarUrl ||
+    u.ProfileImg ||
+    u.profile_img ||
+    u.image ||
+    u.picture ||
+    'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=200'
+  );
+}
+
+export interface BetaFeedback {
+  id: string;
+  user_id?: string;
+  user?: Profile;
+  type: 'bug' | 'suggestion' | 'scrims' | 'other';
+  title: string;
+  description: string;
+  device_info: {
+    platform?: string;
+    userAgent?: string;
+    screen?: string;
+    route?: string;
+    appVersion?: string;
+    contact?: string;
+  };
+  status: 'new' | 'in_progress' | 'resolved' | 'closed';
+  created_at: string;
+  updated_at: string;
 }

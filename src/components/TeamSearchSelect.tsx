@@ -169,7 +169,7 @@ export function TeamSearchSelect({
 
           {/* Autocomplete Dropdown */}
           {isOpen && (
-            <div className="absolute top-full right-0 left-0 mt-1.5 max-h-60 bg-[#0e0e0e] border border-white/15 rounded-2xl shadow-[0_15px_35px_rgba(0,0,0,0.9)] overflow-y-auto z-50 p-1.5 space-y-1 no-scrollbar animate-in fade-in duration-100">
+            <div className="absolute top-full right-0 left-0 mt-1.5 max-h-60 bg-[#0e0e0e] border border-white/15 rounded-2xl shadow-sm overflow-y-auto z-50 p-1.5 space-y-1 no-scrollbar animate-in fade-in duration-100">
               {isLoading && results.length === 0 ? (
                 <div className="p-4 text-center text-xs text-zinc-400 flex items-center justify-center gap-2">
                   <Loader2 className="w-4 h-4 animate-spin text-white" />
@@ -221,7 +221,7 @@ export function TeamSearchSelect({
         </div>
       )}
 
-      {error && <p className="text-[10px] font-bold text-red-400">{error}</p>}
+      {error && <p className="text-[10px] font-bold text-zinc-400">{error}</p>}
     </div>
   );
 }

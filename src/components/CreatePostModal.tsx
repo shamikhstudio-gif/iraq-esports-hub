@@ -15,9 +15,11 @@ import {
 import { SwordsIcon, TeamsIcon, MessagesIcon } from '@/components/icons/CustomIcons';
 import { uploadToCloudinary } from '@/lib/cloudinary';
 import { supabase } from '@/lib/supabase';
-import { Post } from '@/lib/types';
+import { Post, Team } from '@/lib/types';
+import { dispatchTeamPostDiscord } from '@/lib/discordDispatcher';
 import { CustomSelect } from './CustomSelect';
 import { GameSearchSelect } from './GameSearchSelect';
+import { Button } from '@/components/ui';
 
 interface CreatePostModalProps {
   isOpen: boolean;
@@ -114,6 +116,26 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
       if (error) throw error;
 
       if (newPost) {
+        // Dispatch to Discord if author belongs to a team
+        if (newPost.author?.team_id) {
+          supabase
+            .from('teams')
+            .select('*')
+            .eq('id', newPost.author.team_id)
+            .single()
+            .then(({ data: postTeam }) => {
+              if (postTeam) {
+                dispatchTeamPostDiscord(
+                  postTeam as Team,
+                  newPost.content,
+                  newPost.author?.full_name || newPost.author?.username || 'عضو الفريق',
+                  newPost.post_type,
+                  newPost.media_urls?.[0] || undefined
+                ).catch(console.error);
+              }
+            });
+        }
+
         onPostCreated(newPost as Post);
         setContent('');
         setMediaFiles([]);
@@ -130,7 +152,7 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
 
   return createPortal(
     <div 
-      className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-4 bg-black/90 backdrop-blur-sm overflow-y-auto no-scrollbar"
+      className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-4 bg-black/95 overflow-y-auto no-scrollbar"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -223,31 +245,26 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
           </label>
 
           <div className="flex items-center gap-2">
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="md"
               onClick={onClose}
-              className="px-3.5 py-2 text-xs font-bold text-zinc-400 hover:text-white hover:bg-white/10 rounded-xl transition"
             >
               إلغاء
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               form="create-post-form"
-              disabled={isUploading || !content.trim()}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl btn-3d-primary text-black text-xs font-extrabold transition disabled:opacity-50"
+              variant="primary"
+              size="md"
+              isLoading={isUploading}
+              disabled={!content.trim()}
+              icon={<Send className="w-3.5 h-3.5" />}
+              className="font-extrabold"
             >
-              {isUploading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>جاري النشر...</span>
-                </>
-              ) : (
-                <>
-                  <Send className="w-3.5 h-3.5" />
-                  <span>نشر الآن</span>
-                </>
-              )}
-            </button>
+              نشر الآن
+            </Button>
           </div>
         </div>
       </div>

@@ -1,37 +1,82 @@
 {
   "name": "babylon-network",
   "version": "1.0.0",
+  "description": "Iraq Esports Hub Desktop",
+  "author": "IEH Team",
+  "type": "module",
   "private": true,
+  "main": "electron/main.cjs",
   "scripts": {
-    "dev": "next dev -H 0.0.0.0 -p 3000",
-    "build": "next build",
-    "start": "next start -H 0.0.0.0 -p 3000",
-    "lint": "next lint",
-    "cf:dev": "wrangler pages dev",
-    "cf:deploy": "wrangler pages deploy .next"
+    "dev": "vite --host 0.0.0.0 --port 3000",
+    "build": "tsc && vite build",
+    "preview": "vite preview --host 0.0.0.0 --port 3000",
+    "test:e2e": "playwright test",
+    "cap:sync": "cap sync",
+    "cap:open:android": "cap open android",
+    "android:dev": "cap run android -l --external",
+    "android:build": "npm run build && cap sync android",
+    "phone": "pwsh -ExecutionPolicy Bypass -File ./scripts/run-phone.ps1",
+    "desktop": "pwsh -ExecutionPolicy Bypass -File ./scripts/run-desktop.ps1",
+    "electron:dev": "concurrently -k \"vite --port 3000 --host 0.0.0.0\" \"wait-on tcp:3000 && electron .\"",
+    "electron:build": "npm run build && electron-builder",
+    "deploy": "npm run build && node ./node_modules/wrangler/bin/wrangler.js pages deploy dist --project-name iraq-esports-hub --branch=main --commit-dirty=true"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.1",
+    "@capacitor/cli": "^8.5.1",
+    "@capacitor/core": "^8.5.1",
     "@dotlottie/react-player": "^1.6.19",
-    "@supabase/ssr": "^0.5.2",
+    "@hono/node-server": "^2.1.1",
     "@supabase/supabase-js": "^2.112.4",
+    "@vitejs/plugin-react": "^6.1.1",
     "clsx": "^2.1.1",
-    "lucide-react": "^0.475.0",
-    "next": "14.2.24",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "resend": "^4.1.2",
-    "stream-chat": "8.44.0",
-    "stream-chat-react": "11.23.1",
-    "tailwind-merge": "^2.6.0"
+    "hono": "^4.13.5",
+    "lucide-react": "^1.34.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.18.3",
+    "resend": "^6.24.0",
+    "stream-chat": "9.51.0",
+    "stream-chat-react": "14.11.1",
+    "tailwind-merge": "^3.6.0",
+    "vite": "^8.2.2"
   },
   "devDependencies": {
-    "@types/node": "^20.17.24",
-    "@types/react": "^18.3.18",
-    "@types/react-dom": "^18.3.5",
-    "autoprefixer": "^10.4.20",
-    "isomorphic-git": "^1.41.8",
-    "postcss": "^8.5.3",
-    "tailwindcss": "^3.4.17",
-    "typescript": "^5.8.2"
+    "@playwright/test": "^1.62.1",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^26.4.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.5",
+    "autoprefixer": "^10.5.4",
+    "concurrently": "^10.0.5",
+    "electron": "^44.3.0",
+    "electron-builder": "^26.15.3",
+    "isomorphic-git": "^1.41.9",
+    "postcss": "^8.5.26",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2",
+    "wait-on": "^9.1.0"
+  },
+  "build": {
+    "appId": "com.eshamikh.ieh.desktop",
+    "productName": "Iraq Esports Hub",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "include": "electron/installer.nsh"
+    }
   }
 }

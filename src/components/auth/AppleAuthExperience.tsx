@@ -1,35 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { 
-  Mail, 
-  Lock, 
-  User, 
-  AtSign, 
-  ArrowLeft, 
-  ArrowRight, 
-  CheckCircle2, 
-  Loader2, 
-  KeyRound, 
-  ShieldCheck, 
-  Fingerprint, 
-  Eye, 
-  EyeOff, 
-  Sparkles,
-  Gamepad2,
-  MapPin,
-  Flame,
-  Trophy,
-  Heart,
-  Star,
-  Zap,
-  Crown
-} from 'lucide-react';
-import { SwordsIcon } from '@/components/icons/CustomIcons';
+import React, { useState } from 'react';
+import { IehLogo } from '@/components/icons/CustomIcons';
 import { supabase } from '@/lib/supabase';
-import { GameSearchSelect } from '@/components/GameSearchSelect';
-import { CustomSelect } from '@/components/CustomSelect';
+import { AuthHeroShowcase } from './AuthHeroShowcase';
+import { ShieldCheck, Zap, Trophy, Loader2 } from 'lucide-react';
+import { Button, Badge, Card } from '@/components/ui';
 
 interface AppleAuthExperienceProps {
   initialMode?: 'register' | 'login';
@@ -37,921 +13,344 @@ interface AppleAuthExperienceProps {
 }
 
 export function AppleAuthExperience({
-  initialMode = 'login',
   onAuthSuccess,
 }: AppleAuthExperienceProps) {
-  const [mode, setMode] = useState<'register' | 'login'>(initialMode);
-  const [step, setStep] = useState<1 | 2 | 3>(1);
-
-  // Form states
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [fullName, setFullName] = useState('');
-  const [username, setUsername] = useState('');
-  const [primaryGame, setPrimaryGame] = useState('');
-  const [city, setCity] = useState('أونلاين (بدون مقر فيزيائي)');
-
-  // UI status states
   const [isLoading, setIsLoading] = useState(false);
-  const [isPasskeyLoading, setIsPasskeyLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [passkeySuccess, setPasskeySuccess] = useState(false);
-  const [registeredUserId, setRegisteredUserId] = useState<string | null>(null);
+  const [isDesktopWaiting, setIsDesktopWaiting] = useState(false);
 
-  const cities = [
-    'أونلاين (بدون مقر فيزيائي)',
-    'بغداد',
-    'بابل',
-    'أربيل',
-    'البصرة',
-    'السليمانية',
-    'الموصل',
-    'النجف',
-    'كربلاء',
-    'كركوك',
-    'دهوك',
-    'الأنبار',
-    'ذي قار',
-    'ديالى',
-    'واسط',
-    'ميسان',
-    'المثنى',
-    'صلاح الدين',
-    'القادسية',
-  ];
+  // Listen for desktop auth callbacks (from loopback HTTP server or ieh:// deep link)
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const electron = (window as any).electronAPI;
+    if (!electron) return;
 
-  useEffect(() => {
-    setErrorMsg('');
-  }, [step, mode]);
-
-  // Handle Step 1 (Credentials Validation & Pre-check)
-  const handleStep1Submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg('');
-
-    const cleanEmail = email.trim().toLowerCase();
-    if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
-      setErrorMsg('يرجى إدخال بريد إلكتروني صحيح ومعتمد');
-      return;
-    }
-
-    if (password.length < 6) {
-      setErrorMsg('يجب أن تتكون كلمة المرور من 6 خانات على الأقل');
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('email', cleanEmail)
-        .maybeSingle();
-
-      if (existingProfile) {
-        setErrorMsg('هذا البريد مسجل مسبقاً. يمكنك تسجيل الدخول مباشرة');
-        setIsLoading(false);
-        return;
+    const unbindAuthSuccess = electron.onDesktopAuthSuccess?.(async (tokens: { access_token?: string; refresh_token?: string }) => {
+      if (tokens?.access_token) {
+        setIsLoading(true);
+        setIsDesktopWaiting(false);
+        try {
+          const { error } = await supabase.auth.setSession({
+            access_token: tokens.access_token,
+            refresh_token: tokens.refresh_token || '',
+          });
+          if (!error && onAuthSuccess) {
+            onAuthSuccess();
+          }
+        } catch (e) {
+          console.warn('SetSession error:', e);
+        } finally {
+          setIsLoading(false);
+        }
       }
+    });
 
-      setTimeout(() => {
-        setIsLoading(false);
-        setStep(2);
-      }, 200);
-    } catch (err: any) {
-      setErrorMsg(err.message || 'حدث خطأ أثناء التحقق');
-      setIsLoading(false);
-    }
-  };
-
-  // Handle Step 2 (Account and Profile Creation)
-  const handleStep2Submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg('');
-
-    const cleanUsername = username.trim().toLowerCase().replace(/[^a-zA-Z0-9_]/g, '');
-    const cleanFullName = fullName.trim();
-
-    if (!cleanFullName || cleanFullName.length < 2) {
-      setErrorMsg('يرجى إدخال اسمك الكامل');
-      return;
-    }
-
-    if (!cleanUsername || cleanUsername.length < 3) {
-      setErrorMsg('اسم المستخدم يجب أن يكون من 3 أحرف أو أرقام على الأقل');
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const { data: userWithUsername } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('username', cleanUsername)
-        .maybeSingle();
-
-      if (userWithUsername) {
-        setErrorMsg(`اسم المستخدم @${cleanUsername} مستخدم بالفعل`);
-        setIsLoading(false);
-        return;
-      }
-
-      const cleanEmail = email.trim().toLowerCase();
-
-      let authUserId: string | null = null;
+    const unbindDeepLink = electron.onDesktopDeepLink?.(async (url: string) => {
       try {
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email: cleanEmail,
-          password: password,
+        const hash = url.split('#')[1];
+        if (hash) {
+          const params = new URLSearchParams(hash);
+          const accessToken = params.get('access_token');
+          const refreshToken = params.get('refresh_token');
+          if (accessToken) {
+            setIsLoading(true);
+            setIsDesktopWaiting(false);
+            const { error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken || '',
+            });
+            if (!error && onAuthSuccess) {
+              onAuthSuccess();
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Deep link parse error:', e);
+      } finally {
+        setIsLoading(false);
+      }
+    });
+
+    return () => {
+      unbindAuthSuccess?.();
+      unbindDeepLink?.();
+    };
+  }, [onAuthSuccess]);
+
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    setErrorMsg('');
+    try {
+      const isDesktop = typeof window !== 'undefined' && Boolean((window as any).electronAPI?.isDesktop);
+      const isMobileApp = typeof window !== 'undefined' && (
+        Boolean((window as any).Capacitor) ||
+        /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+      );
+
+      if (isDesktop) {
+        // Desktop Electron App: open system browser where Google accounts are saved
+        setIsDesktopWaiting(true);
+        const desktopRedirectUrl = 'https://iraq-esports-hub.pages.dev/auth/desktop-callback';
+
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
           options: {
-            data: {
-              full_name: cleanFullName,
-              username: cleanUsername,
+            redirectTo: desktopRedirectUrl,
+            skipBrowserRedirect: true,
+            queryParams: {
+              access_type: 'offline',
+              prompt: 'select_account',
             },
           },
         });
 
-        if (authError && !authError.message.includes('already registered')) {
-          console.warn('Supabase Auth signUp note:', authError.message);
-        } else if (authData.user) {
-          authUserId = authData.user.id;
+        if (error) throw error;
+
+        if (data?.url) {
+          (window as any).electronAPI.openExternal(data.url);
         }
-
-        if (!authData?.session) {
-          try {
-            await supabase.auth.signInWithPassword({
-              email: cleanEmail,
-              password: password,
-            });
-          } catch (signInEx) {
-            console.warn('Post-signup auto signIn note:', signInEx);
-          }
-        }
-      } catch (authEx) {
-        console.warn('Auth exception handled:', authEx);
-      }
-
-      const newUserId = authUserId || crypto.randomUUID();
-
-      const { data: newProfile, error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          id: newUserId,
-          auth_user_id: authUserId,
-          email: cleanEmail,
-          username: cleanUsername,
-          full_name: cleanFullName,
-          role: 'player',
-          primary_game: primaryGame,
-          city: city,
-          avatar_url: `https://api.dicebear.com/7.x/bottts/svg?seed=${cleanUsername}`,
-          bio: 'لاعب في شبكة الرياضات الإلكترونية العراقية (IEH)',
-          is_verified: false,
-        })
-        .select('*')
-        .single();
-
-      if (profileError) {
-        throw new Error('فشل إنشاء الملف الشخصي: ' + profileError.message);
-      }
-
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('babylon_user_id', newProfile.id);
-      }
-      setRegisteredUserId(newProfile.id);
-
-      setTimeout(() => {
-        setIsLoading(false);
-        setStep(3);
-      }, 250);
-    } catch (err: any) {
-      setErrorMsg(err.message || 'فشل إتمام إنشاء الحساب، يرجى المحاولة ثانية');
-      setIsLoading(false);
-    }
-  };
-
-  // Handle Step 3: Register Passkey
-  const handleAddPasskey = async () => {
-    setIsPasskeyLoading(true);
-    setErrorMsg('');
-
-    try {
-      if (typeof window === 'undefined' || !window.PublicKeyCredential) {
-        throw new Error('المتصفح أو الجهاز الحالي لا يدعم تقنية مفاتيح المرور (Passkeys).');
-      }
-
-      let { data: sessionData } = await supabase.auth.getSession();
-      if (!sessionData?.session && email && password) {
-        try {
-          const { data: sInData } = await supabase.auth.signInWithPassword({
-            email: email.trim().toLowerCase(),
-            password: password,
-          });
-          if (sInData?.session) {
-            sessionData = { session: sInData.session } as any;
-          }
-        } catch (sErr) {
-          console.warn('Session refresh note:', sErr);
-        }
-      }
-
-      // Check if active Supabase Auth session is present
-      const { data: currentSession } = await supabase.auth.getSession();
-      if (!currentSession?.session) {
-        setErrorMsg('تم إنشاء حسابك بنجاح! لم نتمكن من تفعيل مفتاح المرور حالياً بسبب قيود معدل الطلبات في مزود المصادقة. يمكنك تخطي هذه الخطوة والدخول للمنصة فوراً.');
-        setIsPasskeyLoading(false);
         return;
       }
 
-      const { data, error } = await supabase.auth.registerPasskey();
+      if (isMobileApp) {
+        // Mobile App: Use secure handoff ticket so Chrome on Android passes session back to the app
+        const ticket = crypto.randomUUID();
+        const mobileRedirectUrl = `https://iraq-esports-hub.pages.dev/auth/mobile-callback?ticket=${ticket}`;
 
-      if (error) {
-        if (error.name === 'NotAllowedError' || error.message?.includes('NotAllowedError')) {
-          throw new Error('تم إلغاء عملية مفتاح المرور أو لم يتم التعرف على البصمة');
-        }
-        if (error.message?.includes('passkey_disabled')) {
-          throw new Error('خدمة Passkey غير مفعلة في مشروع Supabase حالياً');
-        }
-        if (error.message?.includes('Auth session missing') || error.message?.includes('session')) {
-          setErrorMsg('تم إنشاء حسابك بنجاح! يمكنك تخطي إضافة مفتاح المرور والدخول إلى المنصة الآن.');
-          setIsPasskeyLoading(false);
-          return;
-        }
-        throw new Error(error.message || 'تعذر تسجيل مفتاح المرور');
-      }
+        // 1. Subscribe to Realtime channel for instant session handoff
+        const handoffChannel = supabase.channel(`auth-handoff-${ticket}`);
+        handoffChannel
+          .on('broadcast', { event: 'authenticated' }, async ({ payload }) => {
+            if (payload?.access_token) {
+              await supabase.auth.setSession({
+                access_token: payload.access_token,
+                refresh_token: payload.refresh_token || '',
+              });
+              handoffChannel.unsubscribe();
+              onAuthSuccess?.();
+            }
+          })
+          .subscribe();
 
-      if (data) {
-        setPasskeySuccess(true);
-        setTimeout(() => {
-          completeAuth();
-        }, 1000);
-      }
-    } catch (err: any) {
-      console.error('Supabase passkey registration error:', err);
-      if (err.name === 'NotAllowedError' || err.message?.includes('NotAllowedError')) {
-        setErrorMsg('تم إلغاء عملية مفتاح المرور أو لم يتم التعرف على البصمة');
-      } else if (err.message?.includes('Auth session missing') || err.message?.includes('session')) {
-        setErrorMsg('تم إنشاء حسابك بنجاح! يمكنك تخطي إضافة مفتاح المرور والدخول إلى المنصة الآن.');
-      } else {
-        setErrorMsg(err.message || 'تعذر تسجيل مفتاح المرور');
-      }
-    } finally {
-      setIsPasskeyLoading(false);
-    }
-  };
+        const checkHandoff = async () => {
+          try {
+            const { data: handoff } = await supabase
+              .from('auth_handoffs')
+              .select('*')
+              .eq('ticket', ticket)
+              .maybeSingle();
 
-  const completeAuth = () => {
-    if (typeof window !== 'undefined') {
-      if (registeredUserId) {
-        localStorage.setItem('babylon_user_id', registeredUserId);
-      }
-      if (onAuthSuccess) {
-        onAuthSuccess();
-      }
-      window.location.href = '/';
-    } else if (onAuthSuccess) {
-      onAuthSuccess();
-    }
-  };
-
-  // Handle Login with Passkey
-  const handlePasskeyLogin = async () => {
-    setIsPasskeyLoading(true);
-    setErrorMsg('');
-
-    try {
-      if (typeof window === 'undefined' || !window.PublicKeyCredential) {
-        throw new Error('المتصفح أو الجهاز لا يدعم تسجيل الدخول عبر Passkey');
-      }
-
-      const { data, error } = await supabase.auth.signInWithPasskey();
-
-      if (error) {
-        if (error.name === 'NotAllowedError' || error.message?.includes('NotAllowedError')) {
-          throw new Error('تم إلغاء تسجيل الدخول بالبصمة');
-        }
-        if (
-          error.message?.includes('webauthn_credential_not_found') ||
-          error.message?.includes('verification failed') ||
-          error.message?.includes('Credential verification failed') ||
-          error.message?.includes('not found')
-        ) {
-          throw new Error('لم يتم العثور على مفتاح مرور مسجل لهذا الجهاز. سجّل بالبريد أولاً ثم أضف المفتاح من الإعدادات.');
-        }
-        if (error.message?.includes('passkey_disabled')) {
-          throw new Error('خدمة Passkey غير مفعلة حالياً');
-        }
-        throw new Error(error.message || 'فشل التحقق من مفتاح المرور');
-      }
-
-      if (data?.user) {
-        const userEmail = data.user.email?.toLowerCase().trim();
-        const userId = data.user.id;
-
-        let profile = null;
-        if (userEmail) {
-          const { data: p } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('email', userEmail)
-            .maybeSingle();
-          profile = p;
-        }
-
-        if (!profile && userId) {
-          const { data: p } = await supabase
-            .from('profiles')
-            .select('*')
-            .or(`id.eq.${userId},auth_user_id.eq.${userId}`)
-            .maybeSingle();
-          profile = p;
-        }
-
-        if (profile) {
-          if (profile.is_banned) {
-            await supabase.auth.signOut();
-            throw new Error('تم حظر هذا الحساب لمخالفة قوانين المنصة');
+            if (handoff?.access_token) {
+              clearInterval(pollInterval);
+              window.removeEventListener('focus', checkHandoff);
+              document.removeEventListener('visibilitychange', checkHandoff);
+              await supabase.from('auth_handoffs').delete().eq('ticket', ticket);
+              await supabase.auth.setSession({
+                access_token: handoff.access_token,
+                refresh_token: handoff.refresh_token || '',
+              });
+              handoffChannel.unsubscribe();
+              onAuthSuccess?.();
+            }
+          } catch {
+            // ignore
           }
-          localStorage.setItem('babylon_user_id', profile.id);
-        } else if (userId) {
-          localStorage.setItem('babylon_user_id', userId);
+        };
+
+        const pollInterval = setInterval(checkHandoff, 1000);
+        window.addEventListener('focus', checkHandoff);
+        document.addEventListener('visibilitychange', checkHandoff);
+
+        setTimeout(() => {
+          clearInterval(pollInterval);
+          window.removeEventListener('focus', checkHandoff);
+          document.removeEventListener('visibilitychange', checkHandoff);
+          handoffChannel.unsubscribe();
+        }, 180000);
+
+        // 3. Initiate Google OAuth
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: mobileRedirectUrl,
+            queryParams: {
+              access_type: 'offline',
+              prompt: 'select_account',
+            },
+          },
+        });
+
+        if (error) {
+          clearInterval(pollInterval);
+          handoffChannel.unsubscribe();
+          throw error;
         }
 
-        completeAuth();
-      } else {
-        throw new Error('لم يتم استرجاع بيانات المستخدم');
-      }
-    } catch (err: any) {
-      console.error('Passkey login error:', err);
-      setErrorMsg(err.message || 'فشل تسجيل الدخول بمفتاح المرور');
-    } finally {
-      setIsPasskeyLoading(false);
-    }
-  };
-
-  // Handle Email / Username Login with Auto-sync
-  const handleEmailLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setErrorMsg('');
-
-    try {
-      const cleanInput = email.trim().toLowerCase();
-
-      // Look up profile by either email or username
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .or(`email.ilike.${cleanInput},username.ilike.${cleanInput}`)
-        .maybeSingle();
-
-      if (profileError || !profile) {
-        throw new Error('لم يتم العثور على حساب بهذا البريد الإلكتروني أو اسم المستخدم');
+        return;
       }
 
-      if (profile.is_banned) {
-        throw new Error('تم حظر هذا الحساب لمخالفة قوانين المنصة');
-      }
+      // Web App Browser Flow
+      const redirectUrl = typeof window !== 'undefined'
+        ? window.location.origin.replace(/\/$/, '')
+        : 'https://iraq-esports-hub.pages.dev';
 
-      const userEmail = (profile.email || cleanInput).toLowerCase();
-
-      // Attempt sign in with Supabase Auth
-      const { data: authData, error: authSignInError } = await supabase.auth.signInWithPassword({
-        email: userEmail,
-        password: password,
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectUrl,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'select_account',
+          },
+        },
       });
 
-      // If user isn't in auth.users yet (e.g. seeded profile), provision automatically
-      if (authSignInError && (authSignInError.message?.includes('Invalid login credentials') || authSignInError.message?.includes('invalid_grant'))) {
-        try {
-          const { data: signupData, error: signupError } = await supabase.auth.signUp({
-            email: userEmail,
-            password: password,
-            options: {
-              data: {
-                full_name: profile.full_name,
-                username: profile.username,
-              },
-            },
-          });
-
-          if (signupData?.user) {
-            await supabase
-              .from('profiles')
-              .update({ auth_user_id: signupData.user.id })
-              .eq('id', profile.id);
-          }
-        } catch (signupEx) {
-          console.warn('Auto-sync auth user note:', signupEx);
-        }
-      } else if (authData?.user && !profile.auth_user_id) {
-        await supabase
-          .from('profiles')
-          .update({ auth_user_id: authData.user.id })
-          .eq('id', profile.id);
+      if (error) {
+        throw error;
       }
-
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('babylon_user_id', profile.id);
-      }
-
-      completeAuth();
-    } catch (err: any) {
-      setErrorMsg(err.message || 'فشل تسجيل الدخول، يرجى التحقق من صحة البيانات');
-    } finally {
+    } catch (err: unknown) {
+      console.error('Google Sign-in error:', err);
+      setErrorMsg(err instanceof Error ? err.message : 'تعذر الاتصال بخدمة Google، يرجى المحاولة مجدداً');
       setIsLoading(false);
+      setIsDesktopWaiting(false);
     }
   };
 
   return (
-    <div className="min-h-screen w-full bg-black text-white flex flex-col justify-between selection:bg-[#0095f6]/30 selection:text-white">
-      
-      {/* Main Container: Split Screen on Desktop (Instagram-style) */}
+    <div className="min-h-screen w-full bg-black text-white flex flex-col justify-between selection:bg-white selection:text-black">
+      {/* Main Container: Split Screen on Desktop */}
       <div className="flex-1 flex items-center justify-center px-4 py-8 sm:py-12">
         <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-          
-          {/* ========================================================
-              LEFT COLUMN: INSTAGRAM-STYLE HERO SHOWCASE WITH MOCKUPS
-             ======================================================== */}
-          <div className="hidden lg:flex flex-col items-center text-center space-y-8 select-none">
-            
-            {/* Gradient Logo */}
-            <div className="w-16 h-16 rounded-[22px] bg-gradient-to-tr from-[#f09433] via-[#dc2743] to-[#bc1888] p-[2px] shadow-[0_8px_30px_rgba(220,39,67,0.3)]">
-              <div className="w-full h-full bg-black rounded-[20px] flex items-center justify-center">
-                <Flame className="w-9 h-9 text-white" />
-              </div>
-            </div>
+          {/* Left Column: Hero Showcase */}
+          <AuthHeroShowcase />
 
-            {/* Headline */}
-            <div className="space-y-2 max-w-md">
-              <h2 className="text-3xl xl:text-4xl font-extrabold tracking-tight text-white leading-tight">
-                شاهد أقوى اللحظات والبطولات من{' '}
-                <span className="bg-gradient-to-r from-[#f09433] via-[#e6683c] via-[#dc2743] via-[#cc2366] to-[#bc1888] bg-clip-text text-transparent">
-                  فرقك المفضلة.
-                </span>
-              </h2>
-              <p className="text-sm text-zinc-400">
-                المنصة الرسمية المخصصة للاعبي وفرق الرياضات الإلكترونية داخل جمهورية العراق.
-              </p>
-            </div>
-
-            {/* Layered Story / Phone Mockup Visual */}
-            <div className="relative w-80 h-96 mt-2 flex items-center justify-center">
-              
-              {/* Back Card Left (Valorant Esports) */}
-              <div className="absolute left-2 w-52 h-72 rounded-3xl bg-gradient-to-b from-[#1a1a2e] to-[#0f0f1a] border border-white/10 shadow-2xl transform -rotate-12 -translate-y-2 overflow-hidden opacity-85">
-                <div className="w-full h-full bg-gradient-to-br from-indigo-900/60 via-purple-900/40 to-black p-4 flex flex-col justify-between">
-                  <div className="flex items-center justify-between text-white text-[11px] font-bold">
-                    <span className="flex items-center gap-1">
-                      <Zap className="w-3.5 h-3.5 text-yellow-400" />
-                      <span>GX Scrims</span>
-                    </span>
-                    <span className="px-1.5 py-0.5 rounded bg-white/10 text-[9px]">Valorant</span>
-                  </div>
-                  <div className="text-right space-y-1">
-                    <div className="text-xs font-black text-white">نهائي بطولة العراق</div>
-                    <div className="text-[10px] text-zinc-400">12:00 PM • سيرفر بغداد</div>
-                  </div>
-                  <div className="flex items-center justify-between text-white text-[10px]">
-                    <span className="text-emerald-400 font-bold">● جاري اللعب</span>
-                    <Heart className="w-4 h-4 fill-red-500 text-red-500" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Back Card Right (PUBG / CS2) */}
-              <div className="absolute right-2 w-52 h-72 rounded-3xl bg-gradient-to-b from-[#2a1a10] to-[#120c06] border border-white/10 shadow-2xl transform rotate-12 -translate-y-1 overflow-hidden opacity-85">
-                <div className="w-full h-full bg-gradient-to-br from-amber-900/60 via-orange-950/40 to-black p-4 flex flex-col justify-between">
-                  <div className="flex items-center justify-between text-white text-[11px] font-bold">
-                    <span className="flex items-center gap-1">
-                      <Trophy className="w-3.5 h-3.5 text-amber-400" />
-                      <span>IEH Cup</span>
-                    </span>
-                    <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[9px]">PUBG-M</span>
-                  </div>
-                  <div className="text-right space-y-1">
-                    <div className="text-xs font-black text-white">روم تصفيات النخبة</div>
-                    <div className="text-[10px] text-zinc-400">جائزة 1,000,000 د.ع</div>
-                  </div>
-                  <div className="flex items-center justify-between text-white text-[10px]">
-                    <span className="text-amber-400 font-bold">16 فريق</span>
-                    <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Center Main Card (Phone Story Style with Instagram Details) */}
-              <div className="relative z-10 w-64 h-88 rounded-[28px] bg-[#0c0c0c] border-2 border-white/20 shadow-[0_25px_60px_rgba(0,0,0,0.95)] overflow-hidden flex flex-col justify-between p-3.5">
-                
-                {/* Background Artwork */}
-                <div className="absolute inset-0 bg-gradient-to-b from-blue-900/30 via-[#101827]/80 to-[#050811] z-0" />
-                
-                {/* Story Top Bar */}
-                <div className="relative z-10 space-y-2.5">
-                  <div className="flex gap-1">
-                    <div className="h-0.5 flex-1 bg-white rounded-full" />
-                    <div className="h-0.5 flex-1 bg-white/40 rounded-full" />
-                    <div className="h-0.5 flex-1 bg-white/40 rounded-full" />
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#f09433] via-[#dc2743] to-[#bc1888] p-[1.5px]">
-                        <div className="w-full h-full rounded-full bg-black flex items-center justify-center text-white text-xs font-black">
-                          IQ
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-[11px] font-bold text-white leading-tight">ShadowIQ</div>
-                        <div className="text-[9px] text-zinc-400">كابتن فريق ذئاب بغداد</div>
-                      </div>
-                    </div>
-
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-[10px] font-bold text-emerald-400 flex items-center gap-1 shadow-sm">
-                      <Star className="w-2.5 h-2.5 fill-emerald-400" />
-                      <span>مباشر</span>
-                    </span>
-                  </div>
-                </div>
-
-                {/* Center Showcase Content */}
-                <div className="relative z-10 my-auto text-center space-y-2 px-2">
-                  <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/15 flex items-center justify-center mx-auto shadow-inner">
-                    <Crown className="w-7 h-7 text-amber-400" />
-                  </div>
-                  <div className="text-sm font-black text-white">تحدي 5v5 فوري</div>
-                  <div className="text-[11px] text-zinc-400">جاهزون لأي كلان عراقي الليلة ⚔️</div>
-                </div>
-
-                {/* Floating Reaction Pill */}
-                <div className="absolute top-1/2 left-3 -translate-y-1/2 z-20 px-2.5 py-1 rounded-full bg-black/80 backdrop-blur-md border border-white/20 text-white text-xs flex items-center gap-1.5 shadow-2xl animate-pulse">
-                  <span>🔥</span>
-                  <span className="font-bold text-[10px]">13 - 4 فوز</span>
-                </div>
-
-                {/* Floating Heart Icon Left */}
-                <div className="absolute -bottom-2 -left-2 z-20 w-10 h-10 rounded-full bg-gradient-to-tr from-[#dc2743] to-[#bc1888] flex items-center justify-center shadow-xl">
-                  <Heart className="w-5 h-5 fill-white text-white" />
-                </div>
-
-                {/* Bottom Story Reply Bar */}
-                <div className="relative z-10 flex items-center gap-2">
-                  <div className="flex-1 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-[11px] text-zinc-400 text-right">
-                    إرسال رسالة أو طلب سكريم...
-                  </div>
-                  <div className="w-8 h-8 rounded-full bg-white/10 backdrop-blur-md border border-white/15 flex items-center justify-center text-white">
-                    <Heart className="w-4 h-4 text-white" />
-                  </div>
-                </div>
-
-              </div>
-
-            </div>
-
-          </div>
-
-          {/* ========================================================
-              RIGHT COLUMN: AUTH FORM (EXACT INSTAGRAM STYLE)
-             ======================================================== */}
-          <div className="w-full max-w-sm mx-auto flex flex-col justify-center">
-            
-            {/* Mobile Logo (visible on mobile only) */}
+          {/* Right Column: Google Auth Card */}
+          <div className="w-full max-w-md mx-auto flex flex-col justify-center">
+            {/* Mobile Logo */}
             <div className="lg:hidden text-center mb-6">
-              <div className="w-12 h-12 rounded-[18px] bg-gradient-to-tr from-[#f09433] via-[#dc2743] to-[#bc1888] p-[2px] mx-auto mb-2 shadow-lg">
-                <div className="w-full h-full bg-black rounded-[16px] flex items-center justify-center">
-                  <Flame className="w-6 h-6 text-white" />
-                </div>
+              <div className="w-16 h-16 rounded-2xl bg-black border border-white/20 p-2.5 mx-auto mb-3 flex items-center justify-center shadow-2xl">
+                <IehLogo size={42} glow={false} />
               </div>
-              <h1 className="text-xl font-black text-white">IRAQ ESPORTS HUB</h1>
+              <h1 className="text-xl font-black tracking-widest text-white">IRAQ ESPORTS HUB</h1>
+              <p className="text-xs text-zinc-400 mt-1">المنصة الرسمية للرياضات الإلكترونية في العراق</p>
             </div>
 
-            {/* Main Form Box */}
-            <div className="space-y-4">
-              
-              {/* Heading */}
-              <div className="mb-2">
-                <h3 className="text-base font-semibold text-white">
-                  {mode === 'login' 
-                    ? 'تسجيل الدخول إلى IEH' 
-                    : step === 1 
-                    ? 'إنشاء حساب لاعب جديد' 
-                    : step === 2 
-                    ? 'أكمل هويتك في الشبكة' 
-                    : 'تأمين الحساب بمفتاح المرور'}
-                </h3>
+            {/* Auth Box */}
+            <div className="bg-[#090909] border border-white/15 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
+              {/* Header inside Card */}
+              <div className="text-center space-y-2">
+                <div>
+                  <Badge variant="outline" size="sm" icon={<span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />}>
+                    CLOSED BETA // 2026
+                  </Badge>
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                  تسجيل الدخول
+                </h2>
+                <p className="text-xs sm:text-sm text-zinc-400">
+                  الدخول الحصري للاعبين والفرق المعتمدة في العراق
+                </p>
               </div>
 
               {/* Error Message */}
               {errorMsg && (
-                <div className="p-3 rounded-xl bg-[#ed4956]/10 border border-[#ed4956]/30 text-[#ed4956] text-xs font-medium text-center animate-in fade-in">
+                <div className="p-3.5 rounded-xl bg-white/5 border border-white/20 text-white text-xs font-medium text-center animate-in fade-in">
                   {errorMsg}
                 </div>
               )}
 
-              {/* ===================== MODE: LOGIN ===================== */}
-              {mode === 'login' && (
-                <form onSubmit={handleEmailLogin} className="space-y-3">
-                  
-                  {/* Email / Username Input */}
-                  <div>
-                    <input
-                      type="text"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="اسم المستخدم أو البريد الإلكتروني"
-                      className="w-full px-3.5 py-3 rounded-xl bg-[#121212] border border-white/15 text-white placeholder-zinc-500 text-xs focus:outline-none focus:border-white/40 hover:border-white/25 transition"
-                      required
-                      autoFocus
-                    />
+              {/* Single 1-Click Google Sign-In Button */}
+              <div className="pt-2">
+                <Button
+                  type="button"
+                  onClick={handleGoogleSignIn}
+                  disabled={isLoading}
+                  isLoading={isLoading}
+                  variant="primary"
+                  size="lg"
+                  fullWidth
+                  className="h-14 rounded-2xl text-sm sm:text-base border border-white/30"
+                  icon={
+                    !isLoading && (
+                      <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
+                        <path
+                          fill="#4285F4"
+                          d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                        />
+                        <path
+                          fill="#34A853"
+                          d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                        />
+                        <path
+                          fill="#FBBC05"
+                          d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                        />
+                        <path
+                          fill="#EA4335"
+                          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                        />
+                      </svg>
+                    )
+                  }
+                >
+                  {isLoading
+                    ? (isDesktopWaiting ? 'بانتظار تسجيل الدخول في المتصفح...' : 'جاري الاتصال بـ Google...')
+                    : 'المتابعة باستخدام Google'}
+                </Button>
+                {isDesktopWaiting && (
+                  <div className="text-center mt-2 animate-pulse">
+                    <span className="text-[11px] text-white/70">
+                      تم فتح المتصفح — اختر حساب Google ليتم ربط التطبيق تلقائياً
+                    </span>
                   </div>
-
-                  {/* Password Input */}
-                  <div className="relative">
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="كلمة المرور"
-                      className="w-full px-3.5 py-3 pr-3.5 pl-12 rounded-xl bg-[#121212] border border-white/15 text-white placeholder-zinc-500 text-xs focus:outline-none focus:border-white/40 hover:border-white/25 transition font-mono"
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-zinc-400 hover:text-white transition"
-                    >
-                      {showPassword ? 'إخفاء' : 'عرض'}
-                    </button>
-                  </div>
-
-                  {/* Primary Login Button (Instagram Blue with Smooth Animation) */}
-                  <button
-                    type="submit"
-                    disabled={isLoading || !email.trim() || !password.trim()}
-                    className="w-full py-2.5 rounded-xl bg-[#0095f6] hover:bg-[#1877f2] active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none text-white font-semibold text-sm transition-all duration-150 flex items-center justify-center gap-2 mt-1 cursor-pointer shadow-[0_4px_14px_rgba(0,149,246,0.25)]"
-                  >
-                    {isLoading ? (
-                      <Loader2 className="w-4 h-4 animate-spin text-white" />
-                    ) : (
-                      <span>تسجيل الدخول</span>
-                    )}
-                  </button>
-
-                  {/* Forgot Password Link */}
-                  <div className="text-center pt-1">
-                    <button
-                      type="button"
-                      onClick={() => alert('لإعادة تعيين كلمة المرور، يرجى التواصل مع إدارة الدعم الفني: admin@iraqesportshub.com')}
-                      className="text-xs text-zinc-400 hover:text-white transition"
-                    >
-                      هل نسيت كلمة المرور؟
-                    </button>
-                  </div>
-
-                  {/* Divider */}
-                  <div className="flex items-center gap-4 py-2">
-                    <div className="flex-1 h-[1px] bg-white/15" />
-                    <span className="text-xs text-zinc-500 font-semibold">أو</span>
-                    <div className="flex-1 h-[1px] bg-white/15" />
-                  </div>
-
-                  {/* Passkey / Face ID Login Button (Smooth Glassmorphism) */}
-                  <button
-                    type="button"
-                    onClick={handlePasskeyLogin}
-                    disabled={isPasskeyLoading}
-                    className="w-full py-2.5 px-4 rounded-xl bg-white/[0.04] border border-white/20 hover:bg-white/[0.08] hover:border-white/35 active:scale-[0.98] text-white text-xs font-semibold flex items-center justify-center gap-2.5 transition-all duration-150 cursor-pointer"
-                  >
-                    {isPasskeyLoading ? (
-                      <Loader2 className="w-4 h-4 animate-spin text-white" />
-                    ) : (
-                      <>
-                        <Fingerprint className="w-4 h-4 text-[#0095f6]" />
-                        <span>تسجيل الدخول عبر Passkey / Face ID</span>
-                      </>
-                    )}
-                  </button>
-
-                  {/* Create New Account Button (Outline Style like Instagram) */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMode('register');
-                      setStep(1);
-                    }}
-                    className="w-full py-2.5 rounded-xl border border-[#0095f6] text-[#0095f6] hover:bg-[#0095f6]/10 active:scale-[0.98] text-sm font-semibold transition-all duration-150 text-center block mt-3 cursor-pointer"
-                  >
-                    إنشاء حساب جديد
-                  </button>
-
-                </form>
-              )}
-
-              {/* ===================== MODE: REGISTER ===================== */}
-              {mode === 'register' && (
-                <div className="space-y-4">
-                  
-                  {/* Step Indicator Dots */}
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <div className={`h-1 flex-1 rounded-full transition-all ${step >= 1 ? 'bg-[#0095f6]' : 'bg-white/10'}`} />
-                    <div className={`h-1 flex-1 rounded-full transition-all ${step >= 2 ? 'bg-[#0095f6]' : 'bg-white/10'}`} />
-                    <div className={`h-1 flex-1 rounded-full transition-all ${step >= 3 ? 'bg-[#0095f6]' : 'bg-white/10'}`} />
-                  </div>
-
-                  {/* STEP 1: EMAIL & PASSWORD */}
-                  {step === 1 && (
-                    <form onSubmit={handleStep1Submit} className="space-y-3">
-                      <div>
-                        <input
-                          type="email"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          placeholder="البريد الإلكتروني"
-                          className="w-full px-3.5 py-3 rounded-xl bg-[#121212] border border-white/15 text-white placeholder-zinc-500 text-xs focus:outline-none focus:border-white/40 hover:border-white/25 transition"
-                          required
-                          autoFocus
-                        />
-                      </div>
-
-                      <div className="relative">
-                        <input
-                          type={showPassword ? 'text' : 'password'}
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          placeholder="كلمة المرور (6 خانات على الأقل)"
-                          className="w-full px-3.5 py-3 pr-3.5 pl-12 rounded-xl bg-[#121212] border border-white/15 text-white placeholder-zinc-500 text-xs focus:outline-none focus:border-white/40 hover:border-white/25 transition font-mono"
-                          required
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-zinc-400 hover:text-white transition"
-                        >
-                          {showPassword ? 'إخفاء' : 'عرض'}
-                        </button>
-                      </div>
-
-                      <button
-                        type="submit"
-                        disabled={isLoading || !email.trim() || !password.trim()}
-                        className="w-full py-2.5 rounded-xl bg-[#0095f6] hover:bg-[#1877f2] active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none text-white font-semibold text-sm transition-all duration-150 flex items-center justify-center gap-2 cursor-pointer shadow-[0_4px_14px_rgba(0,149,246,0.25)]"
-                      >
-                        {isLoading ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : <span>متابعة</span>}
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setMode('login')}
-                        className="w-full py-2.5 rounded-xl border border-white/20 text-zinc-300 hover:text-white hover:bg-white/5 active:scale-[0.98] text-xs font-semibold transition-all duration-150 cursor-pointer"
-                      >
-                        لديك حساب بالفعل؟ تسجيل الدخول
-                      </button>
-                    </form>
-                  )}
-
-                  {/* STEP 2: NAME, USERNAME, GAME, CITY */}
-                  {step === 2 && (
-                    <form onSubmit={handleStep2Submit} className="space-y-3">
-                      <div>
-                        <input
-                          type="text"
-                          value={fullName}
-                          onChange={(e) => setFullName(e.target.value)}
-                          placeholder="الاسم الكامل"
-                          className="w-full px-3.5 py-2.5 rounded-xl bg-[#121212] border border-white/15 text-white placeholder-zinc-500 text-xs focus:outline-none focus:border-white/40"
-                          required
-                          autoFocus
-                        />
-                      </div>
-
-                      <div>
-                        <input
-                          type="text"
-                          value={username}
-                          onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))}
-                          placeholder="اسم المستخدم (Username بالإنجليزية)"
-                          className="w-full px-3.5 py-2.5 rounded-xl bg-[#121212] border border-white/15 text-white placeholder-zinc-500 text-xs font-mono text-left focus:outline-none focus:border-white/40"
-                          required
-                        />
-                      </div>
-
-                      <div>
-                        <GameSearchSelect
-                          label="اللعبة الأساسية:"
-                          mode="single"
-                          value={primaryGame}
-                          onChange={setPrimaryGame}
-                          placeholder="ابحث عن لعبتك..."
-                          showSuggestions={false}
-                        />
-                      </div>
-
-                      <div>
-                        <CustomSelect
-                          label="المحافظة:"
-                          value={city}
-                          onChange={setCity}
-                          options={cities}
-                          icon={<MapPin className="w-4 h-4 text-zinc-400" />}
-                        />
-                      </div>
-
-                      <div className="flex items-center gap-2 pt-1">
-                        <button
-                          type="button"
-                          onClick={() => setStep(1)}
-                          className="px-4 py-2.5 rounded-xl border border-white/15 text-xs font-semibold text-zinc-400 hover:text-white active:scale-[0.98] transition cursor-pointer"
-                        >
-                          رجوع
-                        </button>
-                        <button
-                          type="submit"
-                          disabled={isLoading || !fullName.trim() || !username.trim()}
-                          className="flex-1 py-2.5 rounded-xl bg-[#0095f6] hover:bg-[#1877f2] active:scale-[0.98] text-white font-semibold text-sm transition-all duration-150 flex items-center justify-center gap-2 disabled:opacity-40 cursor-pointer shadow-[0_4px_14px_rgba(0,149,246,0.25)]"
-                        >
-                          {isLoading ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : <span>إنشاء الحساب</span>}
-                        </button>
-                      </div>
-                    </form>
-                  )}
-
-                  {/* STEP 3: PASSKEY ENROLLMENT */}
-                  {step === 3 && (
-                    <div className="space-y-4 text-center">
-                      <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/10 space-y-2 text-right">
-                        <div className="flex items-center gap-2 text-white font-bold text-xs">
-                          <Fingerprint className="w-4 h-4 text-[#0095f6]" />
-                          <span>تسجيل دخول فوري بدون كلمة مرور</span>
-                        </div>
-                        <p className="text-xs text-zinc-400 leading-relaxed">
-                          أضف مفتاح مرور Passkey لتتمكن من الدخول بلمسة واحدة عبر Face ID أو بصمة الإصبع في كل مرة.
-                        </p>
-                      </div>
-
-                      {passkeySuccess ? (
-                        <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/30 text-green-300 text-xs font-bold space-y-1">
-                          <CheckCircle2 className="w-6 h-6 mx-auto text-green-400" />
-                          <div>تم تفعيل مفتاح المرور بنجاح!</div>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          <button
-                            type="button"
-                            onClick={handleAddPasskey}
-                            disabled={isPasskeyLoading}
-                            className="w-full py-3 rounded-xl bg-[#0095f6] hover:bg-[#1877f2] active:scale-[0.98] text-white font-semibold text-sm transition-all duration-150 flex items-center justify-center gap-2 cursor-pointer shadow-[0_4px_14px_rgba(0,149,246,0.25)]"
-                          >
-                            {isPasskeyLoading ? (
-                              <Loader2 className="w-4 h-4 animate-spin text-white" />
-                            ) : (
-                              <>
-                                <Fingerprint className="w-4 h-4" />
-                                <span>إضافة مفتاح المرور (Passkey)</span>
-                              </>
-                            )}
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={completeAuth}
-                            className="w-full py-2 text-xs text-zinc-400 hover:text-white active:scale-[0.98] transition cursor-pointer"
-                          >
-                            تخطي الآن والدخول إلى المنصة
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
+                )}
+                <div className="text-center mt-2.5">
+                  <span className="text-[11px] text-zinc-500 font-medium">
+                    تسجيل فوري بضغطة واحدة بدون كلمات مرور
+                  </span>
                 </div>
-              )}
+              </div>
 
+              {/* Trust & Security Features */}
+              <div className="pt-4 border-t border-white/[0.08] space-y-3">
+                <div className="flex items-center gap-3 text-xs text-zinc-400">
+                  <ShieldCheck className="w-4 h-4 text-white shrink-0" />
+                  <span>مصادقة أمان معتمدة ومحمية عبر Google Identity</span>
+                </div>
+                <div className="flex items-center gap-3 text-xs text-zinc-400">
+                  <Zap className="w-4 h-4 text-white shrink-0" />
+                  <span>مزامنة فورية للملف الشخصي وسجل بطولات السكريمات</span>
+                </div>
+                <div className="flex items-center gap-3 text-xs text-zinc-400">
+                  <Trophy className="w-4 h-4 text-white shrink-0" />
+                  <span>رصيد ترحيبي 50 eBits فوري عند أول تسجيل دخول</span>
+                </div>
+              </div>
+
+              {/* Disclaimer */}
+              <div className="pt-2 text-center">
+                <p className="text-[10px] text-zinc-600 leading-relaxed">
+                  بالمتابعة فإنك توافق على ميثاق النزاهة التنافسية وشروط الخدمة الخاصة بشبكة IEH.
+                </p>
+              </div>
             </div>
-
           </div>
-
         </div>
       </div>
 
-      {/* ========================================================
-          BOTTOM FOOTER: LEGAL & COPYRIGHT (INSTAGRAM STYLE)
-         ======================================================== */}
-      <footer className="py-6 px-4 border-t border-white/[0.06] text-center text-xs text-zinc-500 space-y-3">
+      {/* Footer */}
+      <footer className="py-6 px-4 border-t border-white/[0.06] text-center text-xs text-zinc-500 space-y-2">
         <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 font-medium">
-          <span className="hover:text-zinc-300 cursor-pointer">عن IEH</span>
-          <span className="hover:text-zinc-300 cursor-pointer">الفرق</span>
-          <span className="hover:text-zinc-300 cursor-pointer">السكريمات</span>
-          <span className="hover:text-zinc-300 cursor-pointer">البطولات</span>
-          <span className="hover:text-zinc-300 cursor-pointer">الخصوصية</span>
-          <span className="hover:text-zinc-300 cursor-pointer">الشروط</span>
-          <span className="hover:text-zinc-300 cursor-pointer">الدعم الفني</span>
+          <span className="hover:text-zinc-300">عن IEH</span>
+          <span className="hover:text-zinc-300">السكريمات</span>
+          <span className="hover:text-zinc-300">البطولات الرسمية</span>
+          <span className="hover:text-zinc-300">شروط الاستخدام</span>
+          <span className="hover:text-zinc-300">الدعم الفني</span>
         </div>
         <div className="text-[11px] text-zinc-600 font-mono">
           © 2026 IRAQ ESPORTS HUB FROM SHAMIKH
         </div>
       </footer>
-
     </div>
   );
 }

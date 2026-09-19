@@ -1,8 +1,10 @@
+import { Icon } from '@/components/ui/Icon';
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Play, Zap, Gift, Loader2, CheckCircle2, Volume2, VolumeX } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { Button, Badge } from '@/components/ui';
 
 interface SponsorVaultModalProps {
   isOpen: boolean;
@@ -16,26 +18,26 @@ const SPONSORS = [
   {
     name: 'Logitech G Iraq',
     tagline: 'العب بأدوات الأبطال. تجهيزات Logitech G الرسمية في العراق.',
-    color: '#006BFF',
+    color: '#ffffff',
     reward: 25,
-    bg: 'from-blue-950 to-black',
-    logo: '🎮',
+    bg: 'from-white/[0.08] to-black',
+    logoSymbol: 'sports_esports',
   },
   {
     name: 'Fastnet Esports',
     tagline: 'الإنترنت لا يتحملك — Fastnet يتحملك. أسرع خطوط الجيمنج في العراق.',
-    color: '#22d3ee',
+    color: '#ffffff',
     reward: 30,
-    bg: 'from-cyan-950 to-black',
-    logo: '⚡',
+    bg: 'from-white/[0.08] to-black',
+    logoSymbol: 'bolt',
   },
   {
     name: 'RTX Gaming Cafe - Baghdad',
     tagline: 'الحياة الثانية تبدأ هنا. PC Gaming على أعلى مستوى بقلب بغداد.',
-    color: '#a855f7',
+    color: '#ffffff',
     reward: 20,
-    bg: 'from-purple-950 to-black',
-    logo: '🖥️',
+    bg: 'from-white/[0.08] to-black',
+    logoSymbol: 'desktop_windows',
   },
 ];
 
@@ -78,14 +80,15 @@ export function SponsorVaultModal({
   const handleClaim = async () => {
     setPhase('claiming');
     try {
-      const newBalance = currentBalance + sponsor.reward;
-      const { error } = await supabase
-        .from('profiles')
-        .update({ ebits_balance: newBalance })
-        .eq('id', userId);
+      const { data, error } = await supabase.rpc('claim_vault_reward', {
+        p_user_id: userId,
+        p_reward_amount: sponsor.reward,
+      });
       
-      if (!error) {
-        onBalanceUpdate(newBalance);
+      if (!error && data && data.success) {
+        onBalanceUpdate(data.ebits_balance);
+        setPhase('done');
+      } else {
         setPhase('done');
       }
     } catch (err) {
@@ -99,28 +102,30 @@ export function SponsorVaultModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/90 backdrop-blur-xl" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/95" onClick={onClose} />
 
       {/* Modal */}
       <div className={`relative z-10 w-full max-w-md rounded-3xl bg-gradient-to-b ${sponsor.bg} border border-white/15 shadow-2xl overflow-hidden`}>
         
         {/* Close button */}
-        <button
+        <Button
           onClick={onClose}
-          className="absolute top-4 right-4 z-20 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition"
-        >
-          <X className="w-4 h-4 text-white" />
-        </button>
+          size="icon-sm"
+          variant="ghost"
+          className="absolute top-4 right-4 z-20 rounded-full bg-white/10 hover:bg-white/20"
+          icon={<X className="w-4 h-4 text-white" />}
+          aria-label="إغلاق"
+        />
 
         {/* Header */}
         <div className="p-6 pb-4 text-right">
           <div className="flex items-center justify-end gap-2 mb-1">
-            <span className="text-xs font-bold px-2.5 py-0.5 rounded-full border" style={{ borderColor: sponsor.color, color: sponsor.color, backgroundColor: `${sponsor.color}15` }}>
+            <Badge variant="outline" size="xs">
               محتوى مدفوع من الراعي
-            </span>
+            </Badge>
           </div>
           <div className="flex items-center justify-between">
-            <div className="text-4xl">{sponsor.logo}</div>
+            <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center text-white"><Icon name={sponsor.logoSymbol} size={28} /></div>
             <div className="text-right">
               <h2 className="text-lg font-black text-white">{sponsor.name}</h2>
               <p className="text-xs text-zinc-400 mt-0.5 max-w-[220px] leading-relaxed">{sponsor.tagline}</p>
@@ -129,7 +134,7 @@ export function SponsorVaultModal({
         </div>
 
         {/* Ad Screen */}
-        <div className="mx-4 rounded-2xl overflow-hidden border border-white/10 bg-black/60 h-44 flex items-center justify-center relative">
+        <div className="mx-4 rounded-2xl overflow-hidden border border-white/10 bg-black/95 h-44 flex items-center justify-center relative">
           <div
             className="absolute inset-0 opacity-20"
             style={{ background: `radial-gradient(ellipse at center, ${sponsor.color} 0%, transparent 70%)` }}
@@ -138,13 +143,12 @@ export function SponsorVaultModal({
           {phase === 'idle' && (
             <button
               onClick={startWatching}
-              className="flex flex-col items-center gap-3 group"
+              className="flex flex-col items-center gap-3 group cursor-pointer"
             >
               <div
-                className="w-16 h-16 rounded-full flex items-center justify-center shadow-2xl group-hover:scale-110 transition-transform"
-                style={{ backgroundColor: sponsor.color }}
+                className="w-16 h-16 rounded-full flex items-center justify-center shadow-2xl group-hover:scale-110 transition-transform bg-white"
               >
-                <Play className="w-7 h-7 text-white fill-white" />
+                <Play className="w-7 h-7 text-black fill-black" />
               </div>
               <span className="text-xs font-bold text-white">اضغط لمشاهدة الإعلان</span>
             </button>
@@ -153,20 +157,23 @@ export function SponsorVaultModal({
           {phase === 'watching' && (
             <div className="flex flex-col items-center gap-4 w-full px-6">
               {/* Simulated animated ad */}
-              <div className="w-full h-20 rounded-xl flex items-center justify-center text-2xl font-black"
-                style={{ background: `linear-gradient(135deg, ${sponsor.color}30, transparent)`, border: `1px solid ${sponsor.color}40` }}>
-                <span className="animate-pulse">{sponsor.logo} {sponsor.name}</span>
+              <div className="w-full h-20 rounded-xl flex items-center justify-center text-2xl font-black bg-white/5 border border-white/20">
+                <span className="animate-pulse">{sponsor.name}</span>
               </div>
               
               {/* Countdown */}
               <div className="flex items-center gap-3 w-full justify-between">
-                <button onClick={() => setIsMuted(!isMuted)} className="text-zinc-500 hover:text-white transition">
-                  {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-                </button>
+                <Button 
+                  size="icon-sm"
+                  variant="ghost"
+                  onClick={() => setIsMuted(!isMuted)} 
+                  className="text-zinc-400 hover:text-white"
+                  icon={isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                />
                 <div className="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
                   <div
-                    className="h-full rounded-full transition-all"
-                    style={{ width: `${((AD_DURATION - countdown) / AD_DURATION) * 100}%`, backgroundColor: sponsor.color }}
+                    className="h-full rounded-full transition-all bg-white"
+                    style={{ width: `${((AD_DURATION - countdown) / AD_DURATION) * 100}%` }}
                   />
                 </div>
                 <span className="text-xs font-black font-mono text-white w-6 text-center">{countdown}</span>
@@ -177,9 +184,9 @@ export function SponsorVaultModal({
           {(phase === 'claiming' || phase === 'done') && (
             <div className="flex flex-col items-center gap-2">
               {phase === 'claiming' ? (
-                <Loader2 className="w-8 h-8 animate-spin" style={{ color: sponsor.color }} />
+                <Loader2 className="w-8 h-8 animate-spin text-white" />
               ) : (
-                <CheckCircle2 className="w-12 h-12 text-emerald-400 drop-shadow-[0_0_20px_rgba(52,211,153,0.8)]" />
+                <CheckCircle2 className="w-12 h-12 text-white drop-shadow-sm" />
               )}
             </div>
           )}
@@ -189,8 +196,8 @@ export function SponsorVaultModal({
         <div className="p-5 pt-4 text-right space-y-3">
           <div className="flex items-center justify-between p-3 rounded-2xl bg-white/[0.04] border border-white/10">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-amber-500/20 flex items-center justify-center">
-                <Zap className="w-4 h-4 text-amber-400" />
+              <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center">
+                <Zap className="w-4 h-4 text-white" />
               </div>
               <div>
                 <div className="text-[10px] text-zinc-400 font-medium">مكافأة المشاهدة</div>
@@ -199,27 +206,30 @@ export function SponsorVaultModal({
             </div>
             <div className="text-right">
               <div className="text-[10px] text-zinc-400">رصيدك الحالي</div>
-              <div className="text-sm font-black font-mono" style={{ color: sponsor.color }}>{currentBalance} eBits</div>
+              <div className="text-sm font-black font-mono text-white">{currentBalance} eBits</div>
             </div>
           </div>
 
           {phase === 'done' ? (
-            <button
+            <Button
               onClick={onClose}
-              className="w-full py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black font-black text-sm transition flex items-center justify-center gap-2"
+              variant="primary"
+              size="lg"
+              icon={<Gift className="w-4 h-4" />}
+              className="w-full font-black text-sm"
             >
-              <Gift className="w-4 h-4" />
-              <span>تم! رصيدك الجديد: {currentBalance + sponsor.reward} eBits 🎉</span>
-            </button>
+              تم! رصيدك الجديد: {currentBalance + sponsor.reward} eBits
+            </Button>
           ) : countdown === 0 && phase === 'watching' ? (
-            <button
+            <Button
               onClick={handleClaim}
-              className="w-full py-3 rounded-2xl font-black text-sm transition flex items-center justify-center gap-2 hover:brightness-110"
-              style={{ backgroundColor: sponsor.color, color: '#000' }}
+              variant="primary"
+              size="lg"
+              icon={<Zap className="w-4 h-4" />}
+              className="w-full font-black text-sm"
             >
-              <Zap className="w-4 h-4" />
-              <span>المطالبة بـ +{sponsor.reward} eBits الآن! 🔥</span>
-            </button>
+              المطالبة بـ +{sponsor.reward} eBits الآن!
+            </Button>
           ) : (
             <div className="w-full py-3 rounded-2xl bg-white/5 border border-white/10 text-zinc-500 font-black text-sm text-center">
               {phase === 'idle' ? 'شاهد الإعلان كاملاً للمطالبة بالمكافأة' : `انتظر ${countdown} ثانية...`}

@@ -108,7 +108,7 @@ export function GameSearchInput({
 
         {/* Suggestions Dropdown */}
         {isOpen && (
-          <div className="absolute top-full right-0 left-0 mt-1.5 max-h-52 bg-[#0e0e0e] border border-white/15 rounded-2xl shadow-[0_15px_35px_rgba(0,0,0,0.9)] overflow-y-auto z-50 p-1.5 space-y-1 no-scrollbar animate-in fade-in duration-100">
+          <div className="absolute top-full right-0 left-0 mt-1.5 max-h-52 bg-[#0e0e0e] border border-white/15 rounded-2xl shadow-sm overflow-y-auto z-50 p-1.5 space-y-1 no-scrollbar animate-in fade-in duration-100">
             {filteredGames.length > 0 ? (
               filteredGames.map((g) => (
                 <button
@@ -116,10 +116,10 @@ export function GameSearchInput({
                   type="button"
                   onClick={() => handleSelect(g)}
                   className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-right text-xs font-bold transition group ${
-                    query.toLowerCase() === g.toLowerCase()
-                      ? 'bg-white text-black'
-                      : 'text-zinc-300 hover:bg-white/10 hover:text-white'
-                  }`}
+ query.toLowerCase() === g.toLowerCase()
+ ? 'bg-white text-black'
+ : 'text-zinc-300 hover:bg-white/10 hover:text-white'
+ }`}
                 >
                   <div className="flex items-center gap-2">
                     <Gamepad2 className={`w-3.5 h-3.5 ${query.toLowerCase() === g.toLowerCase() ? 'text-black' : 'text-zinc-400 group-hover:text-white'}`} />
@@ -148,7 +148,7 @@ export function GameSearchInput({
         )}
       </div>
 
-      {error && <p className="text-[10px] font-bold text-red-400">{error}</p>}
+      {error && <p className="text-[10px] font-bold text-zinc-400">{error}</p>}
     </div>
   );
 }

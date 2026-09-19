@@ -8,6 +8,8 @@ import { Team } from '@/lib/types';
 import { uploadToCloudinary } from '@/lib/cloudinary';
 import { CustomSelect } from './CustomSelect';
 import { GameSearchSelect } from './GameSearchSelect';
+import { useUser } from '@/context/UserContext';
+import { Button } from '@/components/ui';
 
 interface CreateTeamModalProps {
   isOpen: boolean;
@@ -16,6 +18,7 @@ interface CreateTeamModalProps {
 }
 
 export function CreateTeamModal({ isOpen, onClose, onTeamCreated }: CreateTeamModalProps) {
+  const { user: currentUser, refreshUser } = useUser();
   const [mounted, setMounted] = useState(false);
   const [name, setName] = useState('');
   const [tag, setTag] = useState('');
@@ -32,6 +35,14 @@ export function CreateTeamModal({ isOpen, onClose, onTeamCreated }: CreateTeamMo
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (isOpen && currentUser?.team_id) {
+      setErrorMsg('أنت مسجل في فريق بالفعل. يجب مغادرة فريقك الحالي أولاً لتأسيس فريق جديد.');
+    } else if (isOpen) {
+      setErrorMsg('');
+    }
+  }, [isOpen, currentUser?.team_id]);
 
   // Prevent background scrolling when modal is open
   useEffect(() => {
@@ -103,13 +114,31 @@ export function CreateTeamModal({ isOpen, onClose, onTeamCreated }: CreateTeamMo
         bannerUrl = await uploadToCloudinary(bannerFile);
       }
 
-      const savedUserId = typeof window !== 'undefined' ? localStorage.getItem('babylon_user_id') : null;
-      if (!savedUserId) {
+      const captainId = currentUser?.id || (typeof window !== 'undefined' ? localStorage.getItem('babylon_user_id') : null);
+      if (!captainId) {
         setErrorMsg('يجب تسجيل الدخول لتأسيس فريق جديد');
         setIsLoading(false);
         return;
       }
-      const captainId = savedUserId;
+
+      if (currentUser?.team_id) {
+        setErrorMsg('أنت مسجل في فريق بالفعل. لا يمكن تأسيس أكثر من فريق واحد.');
+        setIsLoading(false);
+        return;
+      }
+
+      // Check if user is already a captain in teams table
+      const { data: existingCap } = await supabase
+        .from('teams')
+        .select('id')
+        .eq('captain_id', captainId)
+        .maybeSingle();
+
+      if (existingCap) {
+        setErrorMsg('أنت مسجل كقائد لفريق بالفعل في النظام.');
+        setIsLoading(false);
+        return;
+      }
 
       const { data: newTeam, error: teamError } = await supabase
         .from('teams')
@@ -145,7 +174,7 @@ export function CreateTeamModal({ isOpen, onClose, onTeamCreated }: CreateTeamMo
           .insert({
             team_id: newTeam.id,
             name: 'كابتن الفريق / Leader',
-            color: '#ef4444',
+            color: '#ffffff',
             permissions: ['manage_roster', 'kick_members', 'manage_roles', 'accept_requests', 'manage_scrims', 'edit_team'],
             priority: 1,
           })
@@ -156,28 +185,28 @@ export function CreateTeamModal({ isOpen, onClose, onTeamCreated }: CreateTeamMo
           {
             team_id: newTeam.id,
             name: 'مساعد كابتن / Co-Leader',
-            color: '#f59e0b',
+            color: '#e4e4e7',
             permissions: ['manage_roster', 'accept_requests', 'manage_scrims'],
             priority: 2,
           },
           {
             team_id: newTeam.id,
             name: 'مدرب / Coach',
-            color: '#8b5cf6',
+            color: '#d4d4d8',
             permissions: ['manage_scrims'],
             priority: 3,
           },
           {
             team_id: newTeam.id,
             name: 'لاعب أساسي / Starter',
-            color: '#3b82f6',
+            color: '#a1a1aa',
             permissions: [],
             priority: 4,
           },
           {
             team_id: newTeam.id,
             name: 'بديل / Substitute',
-            color: '#64748b',
+            color: '#71717a',
             permissions: [],
             priority: 5,
           },
@@ -198,6 +227,7 @@ export function CreateTeamModal({ isOpen, onClose, onTeamCreated }: CreateTeamMo
           .update({ team_id: newTeam.id, in_game_role: 'مؤسس / كابتن الفريق' })
           .eq('id', captainId);
 
+        await refreshUser();
         onTeamCreated(newTeam as Team);
         onClose();
       }
@@ -211,7 +241,7 @@ export function CreateTeamModal({ isOpen, onClose, onTeamCreated }: CreateTeamMo
 
   return createPortal(
     <div 
-      className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-4 bg-black/90 backdrop-blur-sm overflow-y-auto no-scrollbar"
+      className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-4 bg-black/95 overflow-y-auto no-scrollbar"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -338,12 +368,12 @@ export function CreateTeamModal({ isOpen, onClose, onTeamCreated }: CreateTeamMo
                 <div className="relative w-full h-36 sm:h-44 rounded-2xl overflow-hidden border border-white/20 shadow-md group bg-[#050505]">
                   <img src={bannerPreview} alt="Banner preview" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
-                  <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-1.5 text-xs font-bold text-white cursor-pointer backdrop-blur-xs transition">
+                  <label className="absolute inset-0 bg-black/95 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-1.5 text-xs font-bold text-white cursor-pointer transition">
                     <Upload className="w-4 h-4" />
                     <span>تغيير صورة الغلاف</span>
                     <input type="file" accept="image/*" onChange={handleBannerChange} className="hidden" />
                   </label>
-                  <div className="absolute bottom-3 right-3 text-[11px] font-bold text-white/90 bg-black/70 backdrop-blur-sm px-2.5 py-1 rounded-lg border border-white/10 pointer-events-none">
+                  <div className="absolute bottom-3 right-3 text-[11px] font-bold text-white/90 bg-black/95 px-2.5 py-1 rounded-lg border border-white/10 pointer-events-none">
                     معاينة الغلاف الرسمي للفريق
                   </div>
                 </div>
@@ -365,31 +395,26 @@ export function CreateTeamModal({ isOpen, onClose, onTeamCreated }: CreateTeamMo
 
         {/* Footer - Fixed */}
         <div className="flex items-center justify-end gap-2 pt-3 border-t border-white/10 shrink-0">
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="md"
             onClick={onClose}
-            className="px-4 py-2.5 text-xs font-bold text-zinc-400 hover:text-white hover:bg-white/10 rounded-xl transition"
           >
             إلغاء
-          </button>
-          <button
+          </Button>
+          <Button
             type="submit"
             form="create-team-form"
-            disabled={isLoading || !name.trim() || !tag.trim()}
-            className="px-5 py-2.5 btn-3d-primary text-black rounded-xl text-xs font-extrabold flex items-center gap-2 transition disabled:opacity-50"
+            variant="primary"
+            size="md"
+            isLoading={isLoading}
+            disabled={!name.trim() || !tag.trim()}
+            icon={<CheckCircle2 className="w-4 h-4" />}
+            className="font-extrabold"
           >
-            {isLoading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>جاري إنشاء وتأسيس الفريق...</span>
-              </>
-            ) : (
-              <>
-                <CheckCircle2 className="w-4 h-4 text-black" />
-                <span>تأكيد تسجيل الفريق</span>
-              </>
-            )}
-          </button>
+            تأكيد تسجيل الفريق
+          </Button>
         </div>
       </div>
     </div>,

@@ -12,7 +12,7 @@ import { BellIcon } from '@/components/icons/CustomIcons';
 import { supabase } from '@/lib/supabase';
 import { NotificationItem } from '@/lib/types';
 import { SuspensionModal } from '@/components/SuspensionModal';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@/lib/navigation';
 
 export default function NotificationsPage() {
   const router = useRouter();
@@ -120,10 +120,10 @@ export default function NotificationsPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto py-4">
+    <div className="layout-container py-4">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-[#181818] border border-white/20 flex items-center justify-center text-white shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.2)]">
+          <div className="w-12 h-12 rounded-2xl bg-[#181818] border border-white/20 flex items-center justify-center text-white shadow-sm">
             <BellIcon className="w-6 h-6" />
           </div>
           <div>
@@ -149,30 +149,30 @@ export default function NotificationsPage() {
         <button
           onClick={() => setFilter('all')}
           className={`px-4 py-2 rounded-xl text-xs font-extrabold transition ${
-            filter === 'all'
-              ? 'bg-white text-black shadow-sm'
-              : 'bg-[#080808] text-zinc-400 hover:bg-white/5 hover:text-white border border-white/10'
-          }`}
+ filter === 'all'
+ ? 'bg-white text-black shadow-sm'
+ : 'bg-[#080808] text-zinc-400 hover:bg-white/5 hover:text-white border border-white/10'
+ }`}
         >
           جميع الإشعارات ({notifications.length})
         </button>
         <button
           onClick={() => setFilter('admin')}
           className={`px-4 py-2 rounded-xl text-xs font-extrabold transition ${
-            filter === 'admin'
-              ? 'bg-white text-black shadow-sm'
-              : 'bg-[#080808] text-zinc-400 hover:bg-white/5 hover:text-white border border-white/10'
-          }`}
+ filter === 'admin'
+ ? 'bg-white text-black shadow-sm'
+ : 'bg-[#080808] text-zinc-400 hover:bg-white/5 hover:text-white border border-white/10'
+ }`}
         >
           التنبيهات الإدارية
         </button>
         <button
           onClick={() => setFilter('followers')}
           className={`px-4 py-2 rounded-xl text-xs font-extrabold transition ${
-            filter === 'followers'
-              ? 'bg-white text-black shadow-sm'
-              : 'bg-[#080808] text-zinc-400 hover:bg-white/5 hover:text-white border border-white/10'
-          }`}
+ filter === 'followers'
+ ? 'bg-white text-black shadow-sm'
+ : 'bg-[#080808] text-zinc-400 hover:bg-white/5 hover:text-white border border-white/10'
+ }`}
         >
           المتابعون الجدد
         </button>
@@ -199,11 +199,11 @@ export default function NotificationsPage() {
                 key={notif.id}
                 onClick={() => handleNotificationClick(notif)}
                 className={`card-3d p-4 sm:p-5 transition cursor-pointer relative overflow-hidden ${
-                  !notif.is_read ? 'border-white/40 shadow-[0_12px_30px_rgba(255,255,255,0.05)]' : ''
-                } ${isSuspended ? 'border-white/50' : ''}`}
+ !notif.is_read ? 'border-white/40 shadow-sm' : ''
+ } ${isSuspended ? 'border-white/50' : ''}`}
               >
                 {!notif.is_read && (
-                  <span className="absolute top-4 left-4 w-2.5 h-2.5 rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.9)]" />
+                  <span className="absolute top-4 left-4 w-2.5 h-2.5 rounded-full bg-white shadow-sm" />
                 )}
 
                 <div className="flex items-start gap-4">

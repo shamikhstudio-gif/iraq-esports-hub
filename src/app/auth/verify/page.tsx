@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from '@/lib/navigation';
 import { Mail, CheckCircle2, Loader2 } from 'lucide-react';
 
 function VerifyForm() {
@@ -107,7 +107,7 @@ function VerifyForm() {
 
   return (
     <div className="card-3d p-6 sm:p-8 text-center text-white">
-      <div className="w-12 h-12 rounded-2xl bg-[#181818] border border-white/20 text-white mx-auto flex items-center justify-center mb-4 shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.2)]">
+      <div className="w-12 h-12 rounded-2xl bg-[#181818] border border-white/20 text-white mx-auto flex items-center justify-center mb-4 shadow-sm">
         <Mail className="w-6 h-6 text-white" />
       </div>
 
@@ -157,7 +157,7 @@ function VerifyForm() {
           className="w-full py-3 btn-3d-primary text-black rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition disabled:opacity-50"
         >
           {isLoading ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
+            <Loader2 className="w-4 h-4 animate-spin text-black" />
           ) : (
             <span>تأكيد الحساب والدخول</span>
           )}

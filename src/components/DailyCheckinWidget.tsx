@@ -2,121 +2,144 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Sparkles, Trophy, Loader2, CheckCircle2 } from 'lucide-react';
-import { Profile } from '@/lib/types';
+import { CalendarCheck, Sparkles, CheckCircle2 } from 'lucide-react';
+import { useUser } from '@/context/UserContext';
+import { Card, Button, Badge } from '@/components/ui';
+import { triggerHaptic } from '@/lib/haptics';
 
 export function DailyCheckinWidget() {
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const { user: profile, updateUser } = useUser();
   const [isClaiming, setIsClaiming] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [rewardAmount, setRewardAmount] = useState<number>(50);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
 
+  // Fetch dynamic reward amount configured in platform_settings (default 50)
   useEffect(() => {
-    fetchProfile();
+    let isMounted = true;
+    async function fetchDailyConfig() {
+      try {
+        const { data } = await supabase
+          .from('platform_settings')
+          .select('value')
+          .eq('key', 'daily_rewards_config')
+          .maybeSingle();
+
+        if (isMounted && data?.value && typeof data.value.daily_ebits === 'number') {
+          setRewardAmount(data.value.daily_ebits);
+        }
+      } catch (err) {
+        console.warn('Failed to fetch daily reward amount:', err);
+      }
+    }
+
+    fetchDailyConfig();
+
+    const handleFeedRefresh = () => {
+      fetchDailyConfig();
+    };
+    window.addEventListener('ieh:refresh-feed', handleFeedRefresh);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('ieh:refresh-feed', handleFeedRefresh);
+    };
   }, []);
 
-  const fetchProfile = async () => {
-    const savedUserId = typeof window !== 'undefined' ? localStorage.getItem('babylon_user_id') : null;
-    if (!savedUserId) {
-      setIsLoading(false);
-      return;
-    }
+  if (!profile) return null;
 
-    const { data } = await supabase.from('profiles').select('*').eq('id', savedUserId).single();
-    if (data) {
-      setProfile(data as Profile);
-    }
-    setIsLoading(false);
-  };
+  const today = new Date().toISOString().split('T')[0];
+  const lastCheckin = profile.last_checkin_date 
+    ? new Date(profile.last_checkin_date).toISOString().split('T')[0] 
+    : null;
+  const canClaim = lastCheckin !== today;
 
   const handleClaim = async () => {
     if (!profile || isClaiming) return;
     setIsClaiming(true);
+    setFeedback(null);
 
     try {
-      const newXp = (profile.xp || 0) + 50;
-      
-      const { data, error } = await supabase
-        .from('profiles')
-        .update({
-          xp: newXp,
-          last_checkin_date: new Date().toISOString(),
-        })
-        .eq('id', profile.id)
-        .select('*')
-        .single();
+      const { data, error } = await supabase.rpc('claim_daily_checkin', {
+        p_user_id: profile.id,
+      });
 
-      if (error) throw error;
-      if (data) {
-        setProfile(data as Profile);
-        
-        await supabase.from('notifications').insert({
-          user_id: profile.id,
-          type: 'general',
-          title: 'مكافأة الدخول اليومي! 🎁',
-          description: 'تمت إضافة +50 XP إلى رصيدك. عد غداً لمكافأة أكبر!',
-          is_read: false
-        });
+      if (error) {
+        setFeedback({ type: 'error', text: error.message || 'حدث خطأ أثناء المطالبة بالمكافأة' });
+        return;
       }
-    } catch (err) {
+
+      if (data && data.success) {
+        triggerHaptic('success');
+        const awarded = typeof data.reward_amount === 'number' ? data.reward_amount : rewardAmount;
+        updateUser({
+          ebits_balance: data.ebits_balance,
+          last_checkin_date: new Date().toISOString(),
+        });
+        setFeedback({ 
+          type: 'success', 
+          text: data.message || `+${awarded} eBits تمت إضافتها بنجاح!` 
+        });
+      } else if (data && !data.success) {
+        updateUser({
+          last_checkin_date: new Date().toISOString(),
+        });
+        setFeedback({ type: 'info', text: data.message || 'لقد استلمت مكافأة اليوم بالفعل' });
+      }
+    } catch (err: unknown) {
       console.error('Error claiming reward:', err);
+      const msg = err instanceof Error ? err.message : 'تعذر الاتصال بالسيرفر للمطالبة بالمكافأة';
+      setFeedback({ type: 'error', text: msg });
     } finally {
       setIsClaiming(false);
+      setTimeout(() => {
+        setFeedback(null);
+      }, 5000);
     }
   };
 
-  if (isLoading || !profile) return null;
-
-  const today = new Date().toISOString().split('T')[0];
-  const lastCheckin = profile.last_checkin_date ? profile.last_checkin_date.split('T')[0] : null;
-  const canClaim = lastCheckin !== today;
-
-  const currentXp = profile.xp || 0;
-  const xpProgress = (currentXp % 500) / 500 * 100;
-  const currentLevel = Math.floor(currentXp / 500) + 1;
+  const currentEbits = profile.ebits_balance || 0;
 
   return (
-    <div className="ig-card p-4">
+    <Card variant="glass" className="p-4 relative overflow-hidden">
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-right">
         <div className="flex items-center gap-3 w-full sm:w-auto">
-          <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 text-amber-400 flex items-center justify-center shrink-0">
-            <Trophy className="w-5 h-5" />
+          <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 text-white flex items-center justify-center shrink-0">
+            <CalendarCheck className="w-5 h-5 text-white" />
           </div>
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <h4 className="font-bold text-xs text-white">المستوى {currentLevel}</h4>
-              <span className="text-[10px] text-zinc-400 font-mono font-medium px-1.5 py-0.2 rounded bg-white/5">{currentXp} XP</span>
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <h4 className="font-black text-xs text-white">مكافأة الدخول اليومي</h4>
+              <span className="text-[10px] text-zinc-300 font-mono font-bold px-2 py-0.5 rounded bg-white/10 border border-white/15">
+                رصيدك: {currentEbits.toLocaleString()} eBits
+              </span>
+              {feedback && (
+                <Badge
+                  variant={feedback.type === 'success' ? 'solid' : 'outline'}
+                  size="xs"
+                  className="animate-in fade-in zoom-in duration-200"
+                >
+                  {feedback.text}
+                </Badge>
+              )}
             </div>
-            <div className="w-full sm:w-44 h-1.5 rounded-full bg-white/10 overflow-hidden relative" dir="ltr">
-              <div 
-                className="absolute top-0 bottom-0 left-0 bg-[#0095f6] rounded-full transition-all duration-700 ease-out"
-                style={{ width: `${xpProgress}%` }}
-              />
-            </div>
-            <p className="text-[10px] text-zinc-500 mt-1">
-              {500 - (currentXp % 500)} XP للوصول للمستوى التالي
+            <p className="text-[10px] text-zinc-400 mt-0.5">
+              سجل الدخول يومياً واكسب {rewardAmount} eBits مجاناً للتخصيص والبطولات
             </p>
           </div>
         </div>
 
-        <button
+        <Button
           onClick={handleClaim}
           disabled={!canClaim || isClaiming}
-          className={`w-full sm:w-auto px-4 py-2 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1.5 shrink-0 ${
-            canClaim 
-              ? 'ig-btn-primary'
-              : 'bg-white/5 text-zinc-500 border border-white/10'
-          }`}
+          isLoading={isClaiming}
+          variant={canClaim ? 'primary' : 'secondary'}
+          size="sm"
+          className="w-full sm:w-auto shrink-0 font-black"
+          icon={!canClaim ? <CheckCircle2 className="w-3.5 h-3.5 text-zinc-500" /> : <Sparkles className="w-3.5 h-3.5 text-black" />}
         >
-          {isClaiming ? (
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          ) : !canClaim ? (
-            <CheckCircle2 className="w-3.5 h-3.5" />
-          ) : (
-            <Sparkles className="w-3.5 h-3.5" />
-          )}
-          <span>{canClaim ? 'مكافأة الدخول (+50 XP)' : 'تمت المطالبة ✓'}</span>
-        </button>
+          <span>{canClaim ? `مكافأة الدخول (+${rewardAmount} eBits)` : 'تمت المطالبة اليوم'}</span>
+        </Button>
       </div>
-    </div>
+    </Card>
   );
 }

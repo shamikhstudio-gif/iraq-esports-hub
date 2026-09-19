@@ -16,40 +16,17 @@ import { ScrimMercenary, Profile } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
 import { GameSearchInput } from '@/components/GameSearchInput';
 
+import { useSwrData } from '@/lib/cache';
+import { Button, Badge, Card } from '@/components/ui';
+
 interface MercenaryBarProps {
   currentUser: Profile | null;
 }
 
 export function MercenaryBar({ currentUser }: MercenaryBarProps) {
-  const [mercenaries, setMercenaries] = useState<ScrimMercenary[]>([]);
-  const [isMyStatusActive, setIsMyStatusActive] = useState(false);
-  const [myGame, setMyGame] = useState('Valorant');
-  const [myRole, setMyRole] = useState('Duelist / Entry');
-  const [myRank, setMyRank] = useState('Ascendant / Immortal');
-  const [isLoading, setIsLoading] = useState(false);
-  const [isFormOpen, setIsFormOpen] = useState(false);
-
-  useEffect(() => {
-    fetchMercenaries();
-
-    const channel = supabase
-      .channel('mercenaries_realtime')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'scrim_mercenaries' },
-        () => {
-          fetchMercenaries();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [currentUser]);
-
-  const fetchMercenaries = async () => {
-    try {
+  const { data: mercenaries = [], revalidate: revalidateMercenaries } = useSwrData<ScrimMercenary[]>(
+    'scrim_mercenaries_list',
+    async () => {
       const { data } = await supabase
         .from('scrim_mercenaries')
         .select(`
@@ -59,18 +36,34 @@ export function MercenaryBar({ currentUser }: MercenaryBarProps) {
         .eq('is_available', true)
         .order('created_at', { ascending: false })
         .limit(20);
+      return (data || []) as ScrimMercenary[];
+    },
+    { ttl: 120_000 }
+  );
 
-      if (data) {
-        setMercenaries(data as ScrimMercenary[]);
-        if (currentUser) {
-          const myEntry = data.find((m: any) => m.user_id === currentUser.id);
-          setIsMyStatusActive(!!myEntry);
+  const isMyStatusActive = Boolean(currentUser && mercenaries.some((m) => m.user_id === currentUser.id));
+  const [myGame, setMyGame] = useState('Valorant');
+  const [myRole, setMyRole] = useState('Duelist / Entry');
+  const [myRank, setMyRank] = useState('Ascendant / Immortal');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('mercenaries_realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'scrim_mercenaries' },
+        () => {
+          revalidateMercenaries();
         }
-      }
-    } catch (err) {
-      console.error('Error fetching mercenaries:', err);
-    }
-  };
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [revalidateMercenaries]);
 
   const handleToggleMyStatus = async () => {
     if (!currentUser) return;
@@ -84,11 +77,10 @@ export function MercenaryBar({ currentUser }: MercenaryBarProps) {
           .delete()
           .eq('user_id', currentUser.id);
 
-        setIsMyStatusActive(false);
         setIsFormOpen(false);
       } else {
         // Create my status
-        const { data } = await supabase
+        await supabase
           .from('scrim_mercenaries')
           .upsert({
             user_id: currentUser.id,
@@ -97,17 +89,11 @@ export function MercenaryBar({ currentUser }: MercenaryBarProps) {
             rank: myRank,
             is_available: true,
             expires_at: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(),
-          })
-          .select(`
-            *,
-            user:profiles!scrim_mercenaries_user_id_fkey(*)
-          `)
-          .single();
+          });
 
-        setIsMyStatusActive(true);
         setIsFormOpen(false);
       }
-      fetchMercenaries();
+      await revalidateMercenaries();
     } catch (err) {
       console.error('Error updating mercenary status:', err);
     } finally {
@@ -116,7 +102,7 @@ export function MercenaryBar({ currentUser }: MercenaryBarProps) {
   };
 
   return (
-    <div className="p-4 sm:p-5 rounded-3xl bg-[#0a0a0a] border border-white/15 space-y-3 shadow-md">
+    <Card variant="elevated" className="p-4 sm:p-5 space-y-3">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-xl bg-white text-black flex items-center justify-center font-black">
@@ -125,9 +111,9 @@ export function MercenaryBar({ currentUser }: MercenaryBarProps) {
           <div>
             <h4 className="text-xs sm:text-sm font-black text-white flex items-center gap-2">
               <span>سوق البدلاء واللاعبين الأحرار للسكريمات</span>
-              <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-mono font-bold">
-                {mercenaries.length} متاح للعب
-              </span>
+              <Badge variant="default" size="xs">
+                <span>{mercenaries.length} متاح للعب</span>
+              </Badge>
             </h4>
             <p className="text-[11px] text-zinc-400">
               ناقصكم لاعب للسكريم الليلة؟ تصفح اللاعبين المتاحين حالياً أو أعلن جاهزيتك كبديل
@@ -136,8 +122,11 @@ export function MercenaryBar({ currentUser }: MercenaryBarProps) {
         </div>
 
         {currentUser && (
-          <button
-            type="button"
+          <Button
+            variant={isMyStatusActive ? "secondary" : "primary"}
+            size="sm"
+            isLoading={isLoading}
+            icon={isMyStatusActive ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : <UserPlus className="w-3.5 h-3.5" />}
             onClick={() => {
               if (isMyStatusActive) {
                 handleToggleMyStatus();
@@ -145,22 +134,9 @@ export function MercenaryBar({ currentUser }: MercenaryBarProps) {
                 setIsFormOpen(!isFormOpen);
               }
             }}
-            disabled={isLoading}
-            className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-sm ${
-              isMyStatusActive
-                ? 'bg-emerald-500 text-black border border-emerald-400'
-                : 'btn-3d-primary text-black'
-            }`}
           >
-            {isLoading ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : isMyStatusActive ? (
-              <Check className="w-3.5 h-3.5 stroke-[3]" />
-            ) : (
-              <UserPlus className="w-3.5 h-3.5" />
-            )}
             <span>{isMyStatusActive ? 'أنت مسجل كبديل متاح (إلغاء)' : 'تسجيل نفسي كبديل جاهز للعب'}</span>
-          </button>
+          </Button>
         )}
       </div>
 
@@ -196,21 +172,21 @@ export function MercenaryBar({ currentUser }: MercenaryBarProps) {
             </div>
           </div>
           <div className="flex justify-end gap-2">
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setIsFormOpen(false)}
-              className="px-3 py-1.5 text-xs text-zinc-400 hover:text-white"
             >
-              إلغاء
-            </button>
-            <button
-              type="button"
+              <span>إلغاء</span>
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              isLoading={isLoading}
               onClick={handleToggleMyStatus}
-              disabled={isLoading}
-              className="px-4 py-1.5 bg-white text-black text-xs font-black rounded-xl hover:bg-zinc-200"
             >
-              تأكيد الجاهزية والنشر
-            </button>
+              <span>تأكيد الجاهزية والنشر</span>
+            </Button>
           </div>
         </div>
       )}
@@ -241,9 +217,9 @@ export function MercenaryBar({ currentUser }: MercenaryBarProps) {
 
               <div className="flex items-center gap-1.5 shrink-0">
                 {m.rank && (
-                  <span className="px-2 py-0.5 rounded-lg bg-white/5 text-zinc-300 text-[10px] font-bold border border-white/10">
-                    {m.rank}
-                  </span>
+                  <Badge variant="default" size="xs">
+                    <span>{m.rank}</span>
+                  </Badge>
                 )}
                 {m.user?.city && (
                   <span className="text-[10px] font-mono text-zinc-400 px-1.5 py-0.5 rounded bg-black">
@@ -259,6 +235,6 @@ export function MercenaryBar({ currentUser }: MercenaryBarProps) {
           لا يوجد لاعبين مسجلين كبدلاء حالياً. كن أول من يسجل جاهزيته!
         </div>
       )}
-    </div>
+    </Card>
   );
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
+import Link from '@/lib/navigation';
 import { Gamepad2, Calendar, Trash2, Trophy, Flame } from 'lucide-react';
 import { TeamMatch, Team } from '@/lib/types';
 import { TeamsIcon, SwordsIcon } from '@/components/icons/CustomIcons';
@@ -42,16 +42,16 @@ export function MatchScoreboardCard({
   const opponentLink = match.opponent_team_id ? `/teams/${match.opponent_team_id}` : null;
 
   return (
-    <div className="relative overflow-hidden rounded-3xl bg-[#090909] border border-white/15 p-4 sm:p-5 shadow-[0_15px_35px_rgba(0,0,0,0.85)] hover:border-white/30 transition-all group">
+    <div className="relative overflow-hidden rounded-3xl bg-[#090909] border border-white/15 p-4 sm:p-5 shadow-sm hover:border-white/30 transition-all group">
       {/* Background Winner Ambient Glow */}
       <div 
         className={`absolute inset-0 pointer-events-none opacity-20 transition-opacity duration-300 ${
-          isHomeWinner 
-            ? 'bg-gradient-to-l from-emerald-500/20 via-transparent to-transparent' 
-            : isAwayWinner 
-            ? 'bg-gradient-to-r from-emerald-500/20 via-transparent to-transparent' 
-            : 'bg-gradient-to-b from-white/5 to-transparent'
-        }`} 
+ isHomeWinner 
+ ? 'bg-gradient-to-l from-white/15 via-transparent to-transparent' 
+ : isAwayWinner 
+ ? 'bg-gradient-to-r from-white/15 via-transparent to-transparent' 
+ : 'bg-gradient-to-b from-white/5 to-transparent'
+ }`} 
       />
 
       {/* Top Meta Bar */}
@@ -74,7 +74,7 @@ export function MatchScoreboardCard({
             <button
               type="button"
               onClick={() => onDelete(match.id)}
-              className="p-1 text-zinc-500 hover:text-red-400 rounded-lg hover:bg-red-950/30 transition"
+              className="p-1 text-zinc-500 hover:text-white rounded-lg hover:bg-white/10 transition"
               title="حذف نتيجة المباراة"
             >
               <Trash2 className="w-3.5 h-3.5" />
@@ -98,8 +98,8 @@ export function MatchScoreboardCard({
           </div>
 
           <div className={`w-11 h-11 sm:w-14 sm:h-14 rounded-2xl bg-black overflow-hidden flex items-center justify-center shrink-0 border-2 shadow-md ${
-            isHomeWinner ? 'border-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.3)]' : 'border-white/15'
-          }`}>
+ isHomeWinner ? 'border-white shadow-sm' : 'border-white/15'
+ }`}>
             {currentTeam.logo_url ? (
               <img src={currentTeam.logo_url} alt={currentTeam.name} className="w-full h-full object-cover" />
             ) : (
@@ -110,12 +110,12 @@ export function MatchScoreboardCard({
 
         {/* SCORE CENTER - 3 cols */}
         <div className="col-span-3 flex flex-col items-center justify-center">
-          <div className="px-3.5 py-1.5 sm:px-6 sm:py-2.5 rounded-2xl bg-black/90 border border-white/25 shadow-[inset_0_2px_8px_rgba(0,0,0,0.9)] font-mono text-xl sm:text-3xl font-black tracking-wider flex items-center gap-2 sm:gap-3">
-            <span className={isHomeWinner ? 'text-emerald-400' : isHomeWinner === false && !isDraw ? 'text-zinc-500' : 'text-white'}>
+          <div className="px-3.5 py-1.5 sm:px-6 sm:py-2.5 rounded-2xl bg-black/95 border border-white/25 shadow-sm font-mono text-xl sm:text-3xl font-black tracking-wider flex items-center gap-2 sm:gap-3">
+            <span className={isHomeWinner ? 'text-white' : isHomeWinner === false && !isDraw ? 'text-zinc-500' : 'text-white'}>
               {homeScore}
             </span>
             <span className="text-zinc-600 font-bold text-sm sm:text-xl">:</span>
-            <span className={isAwayWinner ? 'text-emerald-400' : isAwayWinner === false && !isDraw ? 'text-zinc-500' : 'text-white'}>
+            <span className={isAwayWinner ? 'text-white' : isAwayWinner === false && !isDraw ? 'text-zinc-500' : 'text-white'}>
               {awayScore}
             </span>
           </div>
@@ -130,8 +130,8 @@ export function MatchScoreboardCard({
         {/* TEAM B (Away / Opponent Team) - 4 cols */}
         <div className="col-span-4 flex items-center justify-start gap-2.5 sm:gap-3.5 text-left min-w-0">
           <div className={`w-11 h-11 sm:w-14 sm:h-14 rounded-2xl bg-black overflow-hidden flex items-center justify-center shrink-0 border-2 shadow-md ${
-            isAwayWinner ? 'border-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.3)]' : 'border-white/15'
-          }`}>
+ isAwayWinner ? 'border-white shadow-sm' : 'border-white/15'
+ }`}>
             {opponentLogo ? (
               <img src={opponentLogo} alt={opponentName} className="w-full h-full object-cover" />
             ) : (

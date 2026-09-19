@@ -4,10 +4,14 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import {
   Zap, ShoppingBag, Sparkles, Play, CheckCircle2, Loader2,
-  Package, Star, Crown, Shield, ArrowRight
+  Package, Star, Crown, Shield, ArrowRight, Palette
 } from 'lucide-react';
 import { SponsorVaultModal } from '@/components/store/SponsorVaultModal';
-import Link from 'next/link';
+import { ProfileStudioModal } from '@/components/profile/ProfileStudioModal';
+import { useUser } from '@/context/UserContext';
+import { useSwrData } from '@/lib/cache';
+import Link from '@/lib/navigation';
+import { Button, Badge } from '@/components/ui';
 
 interface StoreItem {
   id: string;
@@ -15,7 +19,7 @@ interface StoreItem {
   nameAr: string;
   descAr: string;
   price: number;
-  type: 'post_boost' | 'ultra_hd' | 'splash_pass' | 'verified_shield';
+  type: 'post_boost' | 'ultra_hd' | 'splash_pass' | 'verified_shield' | 'neon_frame' | 'profile_studio_pass';
   icon: React.ReactNode;
   color: string;
   glowColor: string;
@@ -25,15 +29,54 @@ interface StoreItem {
 
 const STORE_ITEMS: StoreItem[] = [
   {
+    id: 'neon_frame',
+    name: 'Monochrome Neon Frame',
+    nameAr: 'إطار النيون المتوهج للملف الشخصي',
+    descAr: 'إطار نيون ناصع البياض يحيط بصورتك الشخصية مع تأثير توهج نبضي فاخر ومظهر حصري دائم.',
+    price: 500,
+    type: 'neon_frame',
+    icon: <Sparkles className="w-6 h-6" />,
+    color: '#ffffff',
+    glowColor: 'rgba(255,255,255,0.2)',
+    badge: 'كوزمتك مميز',
+    duration: 'دائم',
+  },
+  {
+    id: 'profile_studio_pass',
+    name: 'Profile Studio VIP Pass',
+    nameAr: 'ترخيص استوديو تخصيص البروفايل VIP',
+    descAr: 'افتح استوديو التخصيص الكامل: إطارات الأفاتار المتحركة (Cyber Glitch, Holo Orbit)، وتأثيرات الماتريكس والصواعق، وزخارف البانر وشارات الفخر.',
+    price: 750,
+    type: 'profile_studio_pass',
+    icon: <Palette className="w-6 h-6" />,
+    color: '#ffffff',
+    glowColor: 'rgba(255,255,255,0.25)',
+    badge: 'الاستوديو الكامل',
+    duration: 'دائم',
+  },
+  {
+    id: 'verified_shield',
+    name: 'Official Verified Shield',
+    nameAr: 'شارة ودرع التحقق الرسمي',
+    descAr: 'تفعيل شارة التحقق الرسمية فورياً بجانب اسم حسابك وفريقك للظهور كعضو موثّق في شبكة IEH.',
+    price: 1000,
+    type: 'verified_shield',
+    icon: <Shield className="w-6 h-6" />,
+    color: '#ffffff',
+    glowColor: 'rgba(255,255,255,0.2)',
+    badge: 'توثيق رسمي',
+    duration: 'دائم',
+  },
+  {
     id: 'post_boost',
     name: 'Neon Feed Boost Card',
     nameAr: 'بطاقة تمييز المنشور النيون',
-    descAr: 'اجعل منشورك يتوهج في الخلاصة بإطار نيون متحرك وشارة "مُميَّز 🔥". صالحة لمنشور واحد.',
+    descAr: 'اجعل منشورك يتوهج في الخلاصة بإطار نيون متحرك وشارة "مُميَّز". صالحة لمنشور واحد.',
     price: 150,
     type: 'post_boost',
     icon: <Sparkles className="w-6 h-6" />,
-    color: '#f59e0b',
-    glowColor: 'rgba(245,158,11,0.4)',
+    color: '#ffffff',
+    glowColor: 'rgba(255,255,255,0.15)',
     badge: 'الأكثر طلباً',
     duration: 'استخدام واحد',
   },
@@ -45,8 +88,8 @@ const STORE_ITEMS: StoreItem[] = [
     price: 200,
     type: 'ultra_hd',
     icon: <Star className="w-6 h-6" />,
-    color: '#06b6d4',
-    glowColor: 'rgba(6,182,212,0.4)',
+    color: '#ffffff',
+    glowColor: 'rgba(255,255,255,0.15)',
     duration: 'استخدام واحد',
   },
   {
@@ -57,197 +100,181 @@ const STORE_ITEMS: StoreItem[] = [
     price: 1500,
     type: 'splash_pass',
     icon: <Crown className="w-6 h-6" />,
-    color: '#a855f7',
-    glowColor: 'rgba(168,85,247,0.4)',
+    color: '#ffffff',
+    glowColor: 'rgba(255,255,255,0.15)',
     badge: 'حصري للفرق',
-    duration: 'دائم',
-  },
-  {
-    id: 'verified_shield',
-    name: 'Team Verified Shield',
-    nameAr: 'درع التحقق الرسمي للفريق',
-    descAr: 'قدّم طلب التحقق الرسمي بشكل مباشر مع إشارة درع التحقق المميزة بجانب اسم فريقك.',
-    price: 3000,
-    type: 'verified_shield',
-    icon: <Shield className="w-6 h-6" />,
-    color: '#22c55e',
-    glowColor: 'rgba(34,197,94,0.4)',
     duration: 'دائم',
   },
 ];
 
 export default function StorePage() {
-  const [userId, setUserId] = useState<string | null>(null);
-  const [balance, setBalance] = useState(0);
-  const [boostCards, setBoostCards] = useState(0);
-  const [ultraHdCards, setUltraHdCards] = useState(0);
-  const [items, setItems] = useState<StoreItem[]>(STORE_ITEMS);
-  const [isLoading, setIsLoading] = useState(true);
+  const { user, updateUser } = useUser();
+  const balance = user?.ebits_balance || 0;
+  const userId = user?.id || null;
+
   const [purchasing, setPurchasing] = useState<string | null>(null);
   const [purchaseResult, setPurchaseResult] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   const [isVaultOpen, setIsVaultOpen] = useState(false);
+  const [isStudioOpen, setIsStudioOpen] = useState(false);
+  const [items] = useState<StoreItem[]>(STORE_ITEMS);
 
-  useEffect(() => {
-    const savedId = typeof window !== 'undefined' ? localStorage.getItem('babylon_user_id') : null;
-    if (!savedId) { setIsLoading(false); return; }
-    setUserId(savedId);
-    fetchUserData(savedId);
-  }, []);
+  const { data: inventory = {}, mutate: mutateInventory } = useSwrData<Record<string, number>>(
+    userId ? `user_inventory_${userId}` : null,
+    async () => {
+      const { data: inv } = await supabase
+        .from('user_inventory')
+        .select('item_type, quantity')
+        .eq('user_id', userId!);
 
-  const fetchUserData = async (id: string) => {
-    try {
-      const [profileRes, pricesRes] = await Promise.all([
-        supabase
-          .from('profiles')
-          .select('ebits_balance, boost_cards_count, ultra_hd_cards_count')
-          .eq('id', id)
-          .single(),
-        supabase
-          .from('platform_settings')
-          .select('value')
-          .eq('key', 'store_prices')
-          .maybeSingle(),
-      ]);
-
-      if (profileRes.data) {
-        setBalance(profileRes.data.ebits_balance || 0);
-        setBoostCards(profileRes.data.boost_cards_count || 0);
-        setUltraHdCards(profileRes.data.ultra_hd_cards_count || 0);
+      const map: Record<string, number> = {};
+      if (inv) {
+        inv.forEach((row: { item_type: string; quantity: number }) => {
+          map[row.item_type] = (map[row.item_type] || 0) + row.quantity;
+        });
       }
-
-      if (pricesRes.data?.value) {
-        const dynamicPrices = pricesRes.data.value;
-        setItems(prev => prev.map(item => {
-          if (dynamicPrices[item.id] !== undefined) {
-            return { ...item, price: Number(dynamicPrices[item.id]) };
-          }
-          return item;
-        }));
-      }
-    } catch (e) {
-      console.warn('Error fetching store settings:', e);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      return map;
+    },
+    { ttl: 180_000 }
+  );
 
   const handlePurchase = async (item: StoreItem) => {
-    if (!userId || balance < item.price) {
-      setPurchaseResult({ type: 'error', msg: 'رصيد eBits غير كافٍ. شاهد المزيد من إعلانات الرعاة لتجميع المزيد!' });
-      setTimeout(() => setPurchaseResult(null), 4000);
+    const activeUid = userId || (typeof window !== 'undefined' ? localStorage.getItem('babylon_user_id') : null);
+    if (!activeUid) {
+      setPurchaseResult({ type: 'error', msg: 'يرجى تسجيل الدخول أولاً لإتمام الشراء.' });
       return;
     }
+
+    if (balance < item.price) {
+      setPurchaseResult({
+        type: 'error',
+        msg: `رصيدك غير كافٍ! تحتاج إلى ${item.price - balance} eBits إضافية. شاهد إعلانات في الـ Vault لكسب المزيد مجاناً.`
+      });
+      return;
+    }
+
     setPurchasing(item.id);
     setPurchaseResult(null);
-    
-    try {
-      const updates: Record<string, number> = { ebits_balance: balance - item.price };
-      if (item.type === 'post_boost') updates.boost_cards_count = boostCards + 1;
-      if (item.type === 'ultra_hd') updates.ultra_hd_cards_count = ultraHdCards + 1;
 
-      const { error } = await supabase.from('profiles').update(updates).eq('id', userId);
+    try {
+      const { data, error } = await supabase.rpc('purchase_store_item', {
+        p_user_id: activeUid,
+        p_item_type: item.type,
+        p_item_id: item.id,
+        p_item_name: item.nameAr,
+        p_price: item.price,
+      });
+
       if (error) throw error;
 
-      setBalance(prev => prev - item.price);
-      if (item.type === 'post_boost') setBoostCards(prev => prev + 1);
-      if (item.type === 'ultra_hd') setUltraHdCards(prev => prev + 1);
-      
-      setPurchaseResult({ type: 'success', msg: `تم شراء "${item.nameAr}" بنجاح! ${item.type === 'post_boost' ? `لديك الآن ${boostCards + 1} بطاقة.` : item.type === 'ultra_hd' ? `لديك الآن ${ultraHdCards + 1} بطاقة.` : 'تحقق من صفحة فريقك للوصول.'}` });
-      setTimeout(() => setPurchaseResult(null), 5000);
-    } catch {
-      setPurchaseResult({ type: 'error', msg: 'حدث خطأ أثناء معالجة الشراء.' });
-      setTimeout(() => setPurchaseResult(null), 4000);
+      if (data && data.success) {
+        updateUser({
+          ebits_balance: data.ebits_balance,
+          ...(data.is_verified !== undefined ? { is_verified: data.is_verified } : {}),
+          ...(data.has_neon_frame !== undefined ? { has_neon_frame: data.has_neon_frame, equipped_frame: data.equipped_frame } : {}),
+          ...(data.has_profile_studio !== undefined ? { has_profile_studio: data.has_profile_studio } : {}),
+        });
+        mutateInventory((prev) => ({
+          ...(prev || {}),
+          [item.type]: data.quantity,
+        }));
+        setPurchaseResult({
+          type: 'success',
+          msg: data.message || `تم شراء "${item.nameAr}" بنجاح!`,
+        });
+
+        if (item.id === 'profile_studio_pass') {
+          setTimeout(() => {
+            setIsStudioOpen(true);
+          }, 600);
+        }
+      }
+    } catch (err: any) {
+      console.error('Purchase error:', err);
+      setPurchaseResult({
+        type: 'error',
+        msg: err.message || 'حدث خطأ أثناء الشراء. يرجى المحاولة لاحقاً.',
+      });
     } finally {
       setPurchasing(null);
     }
   };
 
-  const getInventoryCount = (type: StoreItem['type']) => {
-    if (type === 'post_boost') return boostCards;
-    if (type === 'ultra_hd') return ultraHdCards;
-    return null;
-  };
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
-      </div>
-    );
-  }
+  const getInventoryCount = (type: string) => inventory[type] || 0;
 
   return (
-    <div className="relative min-h-[calc(100vh-4rem)] pb-20" dir="rtl">
-      <div className="fixed top-0 left-0 right-0 h-[500px] pointer-events-none z-0 opacity-25"
-        style={{ background: 'radial-gradient(ellipse 70% 40% at 50% 0%, rgba(245,158,11,0.3) 0%, transparent 80%)' }}
-      />
-
-      <div className="max-w-4xl mx-auto py-8 px-4 space-y-6 relative z-10 text-right">
+    <div className="relative min-h-[calc(100vh-4rem)] pb-20 bg-black" dir="rtl">
+      <div className="layout-container py-8 px-4 space-y-6 relative z-10 text-right">
         
         {/* Header */}
         <div className="p-7 rounded-3xl bg-[#090909] border border-white/10 shadow-2xl text-center relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-500/50 to-transparent" />
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
           <div className="flex items-center justify-center gap-3 mb-5">
-            <ShoppingBag className="w-8 h-8 text-amber-400" />
+            <ShoppingBag className="w-8 h-8 text-white" />
             <h1 className="text-2xl font-black text-white">متجر IEH — eStore</h1>
           </div>
 
           {/* Balance Card */}
-          <div className="inline-flex items-center gap-4 px-6 py-4 rounded-2xl bg-black/60 border border-amber-500/30 shadow-[0_0_30px_rgba(245,158,11,0.15)] mb-5">
+          <div className="inline-flex items-center gap-4 px-6 py-4 rounded-2xl bg-black/95 border border-white/20 shadow-sm mb-5">
             <div className="text-right">
               <div className="text-[10px] text-zinc-400 font-bold">رصيد eBits الحالي</div>
-              <div className="text-3xl font-black text-amber-400 font-mono tracking-tight">{balance.toLocaleString()}</div>
+              <div className="text-3xl font-black text-white font-mono tracking-tight">{balance.toLocaleString()}</div>
               <div className="text-[10px] text-zinc-500 font-mono">eBits</div>
             </div>
-            <div className="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shadow-[0_0_20px_rgba(245,158,11,0.3)]">
-              <Zap className="w-7 h-7 text-amber-400" />
+            <div className="w-14 h-14 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center shadow-sm">
+              <Zap className="w-7 h-7 text-white" />
             </div>
           </div>
 
           {/* Inventory Quick Look */}
           <div className="flex items-center justify-center gap-3 mb-5 flex-wrap">
-            <div className="px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs font-black text-amber-400 flex items-center gap-1.5">
+            <Badge variant="outline" size="sm" className="gap-1.5 font-black text-white">
               <Package className="w-3.5 h-3.5" />
-              <span>بطاقات Neon Boost: {boostCards}</span>
-            </div>
-            <div className="px-3 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-xs font-black text-cyan-400 flex items-center gap-1.5">
+              <span>بطاقات Neon Boost: {getInventoryCount('post_boost')}</span>
+            </Badge>
+            <Badge variant="outline" size="sm" className="gap-1.5 font-black text-white">
               <Star className="w-3.5 h-3.5" />
-              <span>بطاقات Ultra HD: {ultraHdCards}</span>
-            </div>
+              <span>بطاقات Ultra HD: {getInventoryCount('ultra_hd')}</span>
+            </Badge>
           </div>
 
-          <button
+          <Button
             onClick={() => setIsVaultOpen(true)}
-            className="px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-black text-xs flex items-center gap-2 mx-auto transition hover:scale-105 shadow-[0_0_20px_rgba(245,158,11,0.3)]"
+            variant="primary"
+            size="md"
+            icon={<Play className="w-3.5 h-3.5 fill-black" />}
+            className="mx-auto font-black text-xs"
           >
-            <Play className="w-3.5 h-3.5 fill-black" />
             شاهد إعلان واكسب eBits الآن
-          </button>
+          </Button>
         </div>
 
         {/* Purchase Result */}
         {purchaseResult && (
           <div className={`p-4 rounded-2xl text-sm font-bold flex items-center gap-3 animate-in slide-in-from-top duration-300 ${
             purchaseResult.type === 'success'
-              ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-300'
-              : 'bg-red-500/15 border border-red-500/30 text-red-300'
+              ? 'bg-white text-black font-black'
+              : 'bg-white/10 border border-white/20 text-white'
           }`}>
             {purchaseResult.type === 'success' ? <CheckCircle2 className="w-5 h-5 shrink-0" /> : <Zap className="w-5 h-5 shrink-0" />}
             {purchaseResult.msg}
           </div>
         )}
 
-        {/* Store Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Store Grid (2x3 on desktop) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {items.map(item => {
             const inventoryCount = getInventoryCount(item.type);
             const canAfford = balance >= item.price;
             const isPurchasing = purchasing === item.id;
+            const isOwned = 
+              (item.id === 'verified_shield' && user?.is_verified) ||
+              (item.id === 'neon_frame' && user?.has_neon_frame) ||
+              (item.id === 'profile_studio_pass' && user?.has_profile_studio);
 
             return (
               <div
                 key={item.id}
-                className="relative p-5 rounded-3xl bg-[#0c0c0c] border border-white/10 hover:border-white/20 transition-all group overflow-hidden"
+                className="relative p-5 rounded-3xl bg-[#0c0c0c] border border-white/10 hover:border-white/20 transition-all group overflow-hidden flex flex-col justify-between"
               >
                 <div
                   className="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity"
@@ -259,13 +286,13 @@ export default function StorePage() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="shrink-0">
                       {item.badge && (
-                        <span className="block text-[9px] font-black px-2 py-0.5 rounded-full mb-2 text-center"
-                          style={{ backgroundColor: `${item.color}25`, color: item.color, border: `1px solid ${item.color}40` }}>
-                          {item.badge}
-                        </span>
+                        <div className="mb-2">
+                          <Badge variant="solid" size="xs">
+                            {item.badge}
+                          </Badge>
+                        </div>
                       )}
-                      <div className="w-12 h-12 rounded-2xl flex items-center justify-center"
-                        style={{ backgroundColor: `${item.color}20`, border: `1px solid ${item.color}30`, color: item.color, boxShadow: `0 0 15px ${item.glowColor}` }}>
+                      <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-white/10 border border-white/20 text-white shadow-sm">
                         {item.icon}
                       </div>
                     </div>
@@ -279,45 +306,51 @@ export default function StorePage() {
 
                   {/* Inventory Count */}
                   {inventoryCount !== null && inventoryCount > 0 && (
-                    <div className="text-[10px] font-black px-2.5 py-1 rounded-lg inline-flex items-center gap-1"
-                      style={{ backgroundColor: `${item.color}15`, color: item.color, border: `1px solid ${item.color}25` }}>
+                    <Badge variant="outline" size="xs" className="gap-1">
                       <Package className="w-3 h-3" />
                       لديك {inventoryCount} بطاقة جاهزة
-                    </div>
+                    </Badge>
                   )}
+                </div>
 
-                  {/* Price & Buy */}
-                  <div className="flex items-center justify-between gap-3 pt-1 border-t border-white/5">
-                    <div className="flex items-center gap-1.5">
-                      <Zap className="w-3.5 h-3.5 text-amber-400" />
-                      <span className="text-sm font-black font-mono" style={{ color: canAfford ? item.color : '#71717a' }}>
-                        {item.price.toLocaleString()} eBits
-                      </span>
-                    </div>
-                    <button
+                {/* Price & Buy */}
+                <div className="relative z-10 flex items-center justify-between gap-3 pt-4 border-t border-white/5 mt-4">
+                  <div className="flex items-center gap-1.5">
+                    <Zap className="w-3.5 h-3.5 text-white" />
+                    <span className="text-sm font-black font-mono text-white">
+                      {item.price.toLocaleString()} eBits
+                    </span>
+                  </div>
+
+                  {isOwned ? (
+                    item.id === 'profile_studio_pass' ? (
+                      <Button
+                        onClick={() => setIsStudioOpen(true)}
+                        icon={<Palette className="w-3.5 h-3.5" />}
+                        variant="primary"
+                        size="sm"
+                        className="font-black text-xs"
+                      >
+                        فتح الاستوديو
+                      </Button>
+                    ) : (
+                      <Badge variant="outline" size="sm" className="font-bold border-white/20 text-white">
+                        مُفعّل بحسابك
+                      </Badge>
+                    )
+                  ) : (
+                    <Button
                       onClick={() => handlePurchase(item)}
                       disabled={isPurchasing}
-                      className={`px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 transition ${
-                        canAfford
-                          ? 'hover:brightness-110 hover:scale-105 active:scale-95'
-                          : 'opacity-40 cursor-not-allowed'
-                      }`}
-                      style={canAfford ? {
-                        backgroundColor: item.color,
-                        color: '#000',
-                        boxShadow: `0 4px 15px ${item.glowColor}`,
-                      } : { backgroundColor: '#27272a', color: '#71717a' }}
+                      isLoading={isPurchasing}
+                      icon={<ShoppingBag className="w-3.5 h-3.5" />}
+                      variant={canAfford ? 'primary' : 'secondary'}
+                      size="sm"
+                      className="font-black text-xs"
                     >
-                      {isPurchasing ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <>
-                          <ShoppingBag className="w-3.5 h-3.5" />
-                          <span>شراء</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
+                      شراء
+                    </Button>
+                  )}
                 </div>
               </div>
             );
@@ -325,9 +358,9 @@ export default function StorePage() {
         </div>
 
         {/* Team Splash Studio Entry */}
-        <div className="p-6 rounded-3xl bg-gradient-to-r from-purple-950/60 to-[#0c0c0c] border border-purple-500/20 text-right">
+        <div className="p-6 rounded-3xl bg-white/[0.03] border border-white/15 text-right">
           <div className="flex items-center justify-between">
-            <Link href="/teams" className="flex items-center gap-1.5 text-purple-400 hover:text-purple-300 text-xs font-bold transition">
+            <Link href="/teams" className="flex items-center gap-1.5 text-white hover:text-zinc-300 text-xs font-bold transition">
               <span>فتح استوديو الفرق</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
@@ -347,9 +380,15 @@ export default function StorePage() {
           onClose={() => setIsVaultOpen(false)}
           userId={userId}
           currentBalance={balance}
-          onBalanceUpdate={(newBalance) => setBalance(newBalance)}
+          onBalanceUpdate={(newBalance) => updateUser({ ebits_balance: newBalance })}
         />
       )}
+
+      {/* Profile Studio Modal */}
+      <ProfileStudioModal
+        isOpen={isStudioOpen}
+        onClose={() => setIsStudioOpen(false)}
+      />
     </div>
   );
 }

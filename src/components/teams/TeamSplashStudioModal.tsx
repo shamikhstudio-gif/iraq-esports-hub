@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { X, Zap, Eye, Save, Crown, Loader2, Upload, Type, Wand2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { TeamEntrySplash } from './TeamEntrySplash';
+import { Button } from '@/components/ui';
 
 interface SplashConfig {
   text?: string;
@@ -28,20 +29,19 @@ interface TeamSplashStudioModalProps {
 }
 
 const ANIMATION_OPTIONS = [
-  { id: 'zoom', label: 'Zoom Blast 💥', desc: 'يتفجر من المركز' },
-  { id: 'glitch', label: 'Cyber Glitch ⚡', desc: 'تأثير تشويش إلكتروني' },
-  { id: 'flip', label: '3D Flip 🔄', desc: 'انقلاب ثلاثي الأبعاد' },
-  { id: 'scanline', label: 'Neon Scanline 🔴', desc: 'شاشة قديمة نيون' },
-  { id: 'fade', label: 'Clean Fade ✨', desc: 'ظهور ناعم وأنيق' },
+  { id: 'zoom', label: 'Zoom Blast', desc: 'يتفجر من المركز' },
+  { id: 'glitch', label: 'Cyber Glitch', desc: 'تأثير تشويش إلكتروني' },
+  { id: 'flip', label: '3D Flip', desc: 'انقلاب ثلاثي الأبعاد' },
+  { id: 'scanline', label: 'Neon Scanline', desc: 'شاشة قديمة نيون' },
+  { id: 'fade', label: 'Clean Fade', desc: 'ظهور ناعم وأنيق' },
 ];
 
 const GRADIENT_PRESETS = [
-  { label: 'نيون أبيض', colors: ['#ffffff', '#a0a0a0'] },
-  { label: 'ذهبي أسطوري', colors: ['#fbbf24', '#f59e0b', '#d97706'] },
-  { label: 'نار IEH', colors: ['#ef4444', '#f97316', '#fbbf24'] },
-  { label: 'سايبربانك', colors: ['#06b6d4', '#8b5cf6', '#ec4899'] },
-  { label: 'فيروزي خليجي', colors: ['#10b981', '#06b6d4'] },
-  { label: 'أرجواني ملكي', colors: ['#a855f7', '#7c3aed'] },
+  { label: 'أبيض نقي', colors: ['#ffffff', '#ffffff'] },
+  { label: 'فضي معدني', colors: ['#ffffff', '#a1a1aa'] },
+  { label: 'تيتانيوم داكن', colors: ['#e4e4e7', '#71717a'] },
+  { label: 'كاربون فايبر', colors: ['#a1a1aa', '#27272a'] },
+  { label: 'شبح أسود', colors: ['#71717a', '#000000'] },
 ];
 
 export function TeamSplashStudioModal({
@@ -98,25 +98,26 @@ export function TeamSplashStudioModal({
   return (
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="absolute inset-0 bg-black/95 backdrop-blur-2xl" onClick={onClose} />
+        <div className="absolute inset-0 bg-black/95" onClick={onClose} />
 
         <div className="relative z-10 w-full max-w-2xl rounded-3xl bg-[#0a0a0a] border border-white/15 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
           {/* Top Header */}
           <div className="p-5 border-b border-white/10 flex items-center justify-between shrink-0">
-            <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition">
+            <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition cursor-pointer">
               <X className="w-4 h-4 text-white" />
             </button>
             <div className="text-center">
-              <h2 className="text-sm font-black text-white">استوديو دخول الفريق 🎬</h2>
+              <h2 className="text-sm font-black text-white">استوديو دخول الفريق</h2>
               <p className="text-[10px] text-zinc-500">{teamName}</p>
             </div>
-            <button
+            <Button
+              variant="secondary"
+              size="xs"
+              icon={<Eye className="w-3.5 h-3.5" />}
               onClick={() => setIsPreviewOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-500/20 border border-purple-500/30 text-purple-300 text-xs font-bold hover:bg-purple-500/30 transition"
             >
-              <Eye className="w-3.5 h-3.5" />
-              معاينة
-            </button>
+              <span>معاينة</span>
+            </Button>
           </div>
 
           {/* Tab Nav */}
@@ -127,7 +128,7 @@ export function TeamSplashStudioModal({
                 onClick={() => setActiveSection(tab.id as any)}
                 className={`flex-1 py-3 flex items-center justify-center gap-1.5 text-xs font-bold transition ${
                   activeSection === tab.id
-                    ? 'text-white border-b-2 border-purple-500 bg-purple-500/10'
+                    ? 'text-white border-b-2 border-white bg-white/10'
                     : 'text-zinc-500 hover:text-white'
                 }`}
               >
@@ -148,8 +149,8 @@ export function TeamSplashStudioModal({
                     type="text"
                     value={config.text || ''}
                     onChange={e => update({ text: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl bg-[#141414] border border-white/15 text-white text-sm focus:outline-none focus:border-purple-500/60"
-                    placeholder="مثال: ذئاب بغداد • الأفضل في العراق ⚡"
+                    className="w-full px-4 py-3 rounded-xl bg-[#141414] border border-white/15 text-white text-sm focus:outline-none focus:border-white"
+                    placeholder="مثال: ذئاب بغداد • الأفضل في العراق"
                     maxLength={60}
                   />
                   <div className="text-[10px] text-zinc-600 mt-1 text-left font-mono">{(config.text || '').length}/60</div>
@@ -206,7 +207,7 @@ export function TeamSplashStudioModal({
                     type="url"
                     value={config.image_url || ''}
                     onChange={e => update({ image_url: e.target.value || null })}
-                    className="w-full px-4 py-3 rounded-xl bg-[#141414] border border-white/15 text-white text-xs font-mono focus:outline-none focus:border-purple-500/60 text-left"
+                    className="w-full px-4 py-3 rounded-xl bg-[#141414] border border-white/15 text-white text-xs font-mono focus:outline-none focus:border-white text-left"
                     placeholder="https://i.imgur.com/logo.png"
                     dir="ltr"
                   />
@@ -221,7 +222,7 @@ export function TeamSplashStudioModal({
                       min={2} max={8} step={1}
                       value={config.duration || 4}
                       onChange={e => update({ duration: parseInt(e.target.value) })}
-                      className="flex-1 accent-purple-500"
+                      className="flex-1 accent-white"
                     />
                     <span className="text-sm font-black text-white font-mono w-16 text-center">
                       {config.duration || 4} ثوان
@@ -239,7 +240,7 @@ export function TeamSplashStudioModal({
                     onClick={() => update({ animation_type: anim.id as any })}
                     className={`w-full flex items-center justify-between p-4 rounded-2xl transition text-right border ${
                       config.animation_type === anim.id
-                        ? 'bg-purple-500/20 border-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.2)]'
+                        ? 'bg-white/15 border-white shadow-sm'
                         : 'bg-[#141414] border-white/10 hover:border-white/20'
                     }`}
                   >
@@ -264,8 +265,8 @@ export function TeamSplashStudioModal({
                         key={bt.id}
                         onClick={() => update({ backdrop_type: bt.id as any })}
                         className={`py-2.5 rounded-xl text-xs font-bold transition ${
-                          config.backdrop_type === bt.id ? 'bg-white text-black' : 'bg-[#141414] border border-white/10 text-zinc-400 hover:text-white'
-                        }`}
+ config.backdrop_type === bt.id ? 'bg-white text-black' : 'bg-[#141414] border border-white/10 text-zinc-400 hover:text-white'
+ }`}
                       >
                         {bt.label}
                       </button>
@@ -282,7 +283,7 @@ export function TeamSplashStudioModal({
                         min={4} max={40} step={4}
                         value={config.backdrop_blur || 16}
                         onChange={e => update({ backdrop_blur: parseInt(e.target.value) })}
-                        className="flex-1 accent-purple-500"
+                        className="flex-1 accent-white"
                       />
                       <span className="text-sm font-black text-white font-mono w-16 text-center">
                         {config.backdrop_blur || 16}px
@@ -310,7 +311,7 @@ export function TeamSplashStudioModal({
                       />
                     </div>
                     <div className="grid grid-cols-5 gap-2 mt-3">
-                      {['#000000', '#0d0d0d', '#0c0a1e', '#0a1628', '#0f0a00'].map(color => (
+                      {['#000000', '#0a0a0a', '#141414', '#1f1f1f', '#262626'].map(color => (
                         <button
                           key={color}
                           onClick={() => update({ backdrop_color: color })}
@@ -327,21 +328,24 @@ export function TeamSplashStudioModal({
 
           {/* Footer Actions */}
           <div className="p-4 border-t border-white/10 flex items-center gap-3 shrink-0" dir="rtl">
-            <button
+            <Button
+              variant="primary"
+              size="md"
+              className="flex-1"
+              icon={<Save className="w-4 h-4" />}
+              isLoading={isSaving}
               onClick={handleSave}
-              disabled={isSaving}
-              className="flex-1 py-3 rounded-2xl bg-purple-600 hover:bg-purple-500 text-white font-black text-sm flex items-center justify-center gap-2 transition shadow-[0_0_25px_rgba(168,85,247,0.3)] disabled:opacity-50"
             >
-              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               <span>حفظ ونشر أنيميشن الدخول</span>
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="secondary"
+              size="md"
+              icon={<Eye className="w-3.5 h-3.5" />}
               onClick={() => setIsPreviewOpen(true)}
-              className="px-5 py-3 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 text-white font-bold text-xs flex items-center gap-1.5 transition"
             >
-              <Eye className="w-3.5 h-3.5" />
-              معاينة
-            </button>
+              <span>معاينة</span>
+            </Button>
           </div>
         </div>
       </div>
@@ -354,12 +358,14 @@ export function TeamSplashStudioModal({
             teamName={teamName}
             teamLogo={teamLogo}
           />
-          <button
+          <Button
+            variant="secondary"
+            size="md"
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70]"
             onClick={() => setIsPreviewOpen(false)}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] px-6 py-3 rounded-2xl bg-black/80 border border-white/20 text-white text-xs font-bold backdrop-blur-sm"
           >
-            ← إغلاق المعاينة والعودة للاستوديو
-          </button>
+            <span>← إغلاق المعاينة والعودة للاستوديو</span>
+          </Button>
         </div>
       )}
     </>

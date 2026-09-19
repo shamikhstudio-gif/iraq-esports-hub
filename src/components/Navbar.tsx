@@ -1,101 +1,77 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
-import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
-import { 
-  ShieldCheck, 
-  User, 
-  LogOut, 
-  LogIn, 
-  UserPlus, 
-  Flame, 
+import Link from '@/lib/navigation';
+import { usePathname, useSearchParams } from '@/lib/navigation';
+import {
+  ShieldCheck,
+  User,
+  LogOut,
   Search,
-  PlusSquare, 
-  Menu, 
+  Menu,
   X,
-  Zap
+  Zap,
+  Palette
 } from 'lucide-react';
-import { HomeIcon, TeamsIcon, BellIcon, MessagesIcon, SwordsIcon, SettingsIcon } from '@/components/icons/CustomIcons';
+import { HomeIcon, TeamsIcon, BellIcon, MessagesIcon, SwordsIcon, SettingsIcon, IehLogo } from '@/components/icons/CustomIcons';
 import { supabase } from '@/lib/supabase';
-import { Profile } from '@/lib/types';
-import { CreatePostModal } from './CreatePostModal';
+import { Profile, resolveUserAvatar } from '@/lib/types';
+import { useUser } from '@/context/UserContext';
 import { CreateTeamModal } from './CreateTeamModal';
+import { Button, Badge } from '@/components/ui';
+import { AvatarWithDecoration } from '@/components/ui/AvatarWithDecoration';
+
+const AUTH_USER_KEY = 'babylon_user_id';
 
 function NavbarContent() {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const currentType = searchParams.get('type');
+  useSearchParams(); // triggers Suspense boundary
 
-  const [currentUser, setCurrentUser] = useState<Profile | null>(null);
+  const { user: currentUser, logout } = useUser();
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState<boolean>(false);
-  const [isCreatePostOpen, setIsCreatePostOpen] = useState<boolean>(false);
   const [isCreateTeamOpen, setIsCreateTeamOpen] = useState<boolean>(false);
+  const [isDesktop, setIsDesktop] = useState(false);
 
   useEffect(() => {
-    loadNavbarData();
+    if (typeof window !== 'undefined' && Boolean((window as any).electronAPI?.isDesktop)) {
+      setIsDesktop(true);
+    }
   }, []);
 
-  const loadNavbarData = async () => {
-    const savedUserId = typeof window !== 'undefined' ? localStorage.getItem('babylon_user_id') : null;
-    if (!savedUserId) {
-      setCurrentUser(null);
+  useEffect(() => {
+    if (currentUser?.id) {
+      loadNotificationCount(currentUser.id);
+    } else {
       setUnreadCount(0);
-      return;
     }
+  }, [currentUser?.id]);
 
+  const loadNotificationCount = async (userId: string) => {
     try {
-      const [userRes, notifRes] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', savedUserId).single(),
-        supabase
-          .from('notifications')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', savedUserId)
-          .eq('is_read', false),
-      ]);
+      const { count } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('is_read', false);
 
-      if (userRes.data) {
-        setCurrentUser(userRes.data);
-      }
-      if (typeof notifRes.count === 'number') {
-        setUnreadCount(notifRes.count);
-      }
-    } catch (err) {
-      console.error('Navbar data fetch error:', err);
+      setUnreadCount(count || 0);
+    } catch (err: unknown) {
+      console.error('Error loading notification count:', err);
     }
   };
 
-  const handleSwitchAccount = async (targetEmail: string) => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('email', targetEmail)
-      .single();
-
-    if (data) {
-      setCurrentUser(data);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('babylon_user_id', data.id);
-      }
-      setIsUserMenuOpen(false);
-      window.location.reload();
-    }
-  };
-
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    setIsUserMenuOpen(false);
+    await logout();
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('babylon_user_id');
+      window.location.href = '/';
     }
-    setCurrentUser(null);
-    window.location.reload();
   };
 
   const checkIsActive = (href: string) => {
-    if (href === '/') {
-      return pathname === '/';
-    }
+    if (href === '/') return pathname === '/';
     return pathname.startsWith(href);
   };
 
@@ -108,20 +84,26 @@ function NavbarContent() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-black/90 backdrop-blur-md border-b border-white/[0.08]">
-        <div className="max-w-[935px] mx-auto px-4">
-          <div className="flex items-center justify-between h-14">
-            
-            {/* Logo Wordmark */}
+      <header 
+        className="sticky z-40 bg-black/90 backdrop-blur-md border-b border-white/[0.08] shrink-0"
+        style={{ top: isDesktop ? '32px' : '0px' }}
+      >
+        <div className="layout-container px-4">
+          <div className="flex items-center justify-between h-16">
+
+            {/* Official Logo */}
             <div className="flex items-center gap-4">
-              <Link href="/" prefetch={true} className="flex items-center gap-2" title="الصفحة الرئيسية">
-                <span className="text-xl font-black tracking-tight text-white hover:opacity-80 transition">IEH</span>
+              <Link href="/" prefetch={true} className="flex items-center gap-2.5 group" title="شبكة الرياضات الإلكترونية العراقية | IEH">
+                <IehLogo size={30} glow={true} />
+                <span className="text-xl font-black tracking-tight text-white group-hover:text-zinc-200 transition">
+                  IEH
+                </span>
               </Link>
 
               <Link
                 href="/teams"
                 prefetch={true}
-                className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.05] hover:bg-white/[0.08] text-zinc-400 hover:text-white text-xs transition border border-white/[0.05]"
+                className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.05] hover:bg-white/[0.08] text-text-secondary hover:text-white text-xs transition border border-white/[0.05]"
                 title="البحث عن الفرق واللاعبين"
               >
                 <Search className="w-3.5 h-3.5" />
@@ -129,7 +111,7 @@ function NavbarContent() {
               </Link>
             </div>
 
-            {/* Center Navigation Icons */}
+            {/* Center Navigation */}
             <nav className="hidden md:flex items-center gap-6">
               {navLinks.map((link) => {
                 const Icon = link.icon;
@@ -140,11 +122,8 @@ function NavbarContent() {
                     href={link.href}
                     prefetch={true}
                     title={link.name}
-                    className={`relative p-2 rounded-lg transition ${
-                      isActive
-                        ? 'text-white'
-                        : 'text-zinc-400 hover:text-white'
-                    }`}
+                    className={`relative p-2 rounded-lg transition ${isActive ? 'text-white' : 'text-text-secondary hover:text-white'
+                      }`}
                   >
                     <Icon className="w-5 h-5 shrink-0" />
                     {isActive && (
@@ -155,53 +134,44 @@ function NavbarContent() {
               })}
             </nav>
 
-            {/* Right Action Icons */}
+            {/* Right Actions */}
             <div className="flex items-center gap-3">
               {currentUser && (
                 <>
-                  {/* eBits Balance Pill */}
+                  {/* eBits Balance */}
                   <Link
                     href="/store"
                     title="متجر eBits"
-                    className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/25 hover:border-amber-500/50 hover:bg-amber-500/15 transition-all group"
+                    className="hidden sm:inline-flex items-center justify-center gap-1.5 px-3 h-8 rounded-full bg-ebits/10 border border-ebits/25 hover:border-ebits/50 hover:bg-ebits/15 transition-all"
                   >
-                    <Zap className="w-3 h-3 text-amber-400" />
-                    <span className="text-xs font-black text-amber-400 font-mono">{(currentUser.ebits_balance || 0).toLocaleString()}</span>
+                    <Zap className="w-3.5 h-3.5 text-ebits shrink-0" />
+                    <span className="text-xs font-black text-ebits font-mono leading-none flex items-center justify-center">
+                      {(currentUser.ebits_balance || 0).toLocaleString()}
+                    </span>
                   </Link>
-
-                  {/* Create Post Button */}
-                  <button
-                    onClick={() => setIsCreatePostOpen(true)}
-                    className="p-1.5 text-zinc-400 hover:text-white transition"
-                    title="إنشاء منشور جديد"
-                  >
-                    <PlusSquare className="w-5 h-5" />
-                  </button>
 
                   {/* Messages */}
                   <Link
                     href="/messages"
                     prefetch={true}
-                    className={`relative p-1.5 transition ${
-                      checkIsActive('/messages') ? 'text-white' : 'text-zinc-400 hover:text-white'
-                    }`}
+                    className={`relative p-1.5 rounded-lg flex items-center justify-center transition ${checkIsActive('/messages') ? 'text-white' : 'text-text-secondary hover:text-white'
+                      }`}
                     title="الرسائل"
                   >
-                    <MessagesIcon className="w-5 h-5" />
+                    <MessagesIcon className="w-5 h-5 shrink-0" />
                   </Link>
 
                   {/* Notifications */}
                   <Link
                     href="/notifications"
                     prefetch={true}
-                    className={`relative p-1.5 transition ${
-                      checkIsActive('/notifications') ? 'text-white' : 'text-zinc-400 hover:text-white'
-                    }`}
+                    className={`relative p-1.5 rounded-lg flex items-center justify-center transition ${checkIsActive('/notifications') ? 'text-white' : 'text-text-secondary hover:text-white'
+                      }`}
                     title="الإشعارات"
                   >
-                    <BellIcon className="w-5 h-5" />
-                    {Boolean(unreadCount > 0) && (
-                      <span className="absolute 0 top-0.5 right-0.5 min-w-[14px] h-[14px] px-0.5 rounded-full bg-[#ed4956] text-white text-[9px] font-bold flex items-center justify-center">
+                    <BellIcon className="w-5 h-5 shrink-0" />
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 min-w-[15px] h-[15px] px-1 bg-white text-black font-black text-[9px] leading-none rounded-full flex items-center justify-center border border-black shadow-sm pointer-events-none select-none">
                         {unreadCount > 99 ? '99+' : unreadCount}
                       </span>
                     )}
@@ -213,151 +183,135 @@ function NavbarContent() {
                 <div className="relative">
                   <button
                     onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                    className="w-7 h-7 rounded-full overflow-hidden border border-white/20 hover:border-white/50 transition shrink-0"
+                    className="p-0.5 rounded-xl hover:opacity-80 transition shrink-0 flex items-center justify-center"
                     title={currentUser.full_name}
                   >
-                    <img
-                      src={currentUser.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
+                    <AvatarWithDecoration
+                      src={resolveUserAvatar(currentUser)}
                       alt={currentUser.full_name}
-                      className="w-full h-full object-cover"
+                      frame={currentUser.equipped_frame || (currentUser.has_neon_frame ? 'neon_pulse' : 'none')}
+                      size="xs"
                     />
                   </button>
 
                   {isUserMenuOpen && (
-                    <div className="absolute left-0 mt-2 w-60 bg-[#1a1a1a] rounded-xl shadow-2xl border border-white/[0.12] py-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+                    <div className="absolute left-0 mt-2 w-56 bg-surface-elevated rounded-xl shadow-modal border border-border py-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+                      {/* User info */}
                       <div className="px-4 py-2.5 border-b border-white/[0.08]">
                         <div className="text-xs font-bold text-white truncate">{currentUser.full_name}</div>
-                        <div className="text-[11px] text-zinc-500 font-mono truncate">@{currentUser.username}</div>
+                        <div className="text-[11px] text-text-tertiary font-mono truncate">@{currentUser.username}</div>
                       </div>
 
+                      {/* Nav items */}
                       <div className="py-1">
                         <Link
                           href={`/profile/${currentUser.username}`}
                           prefetch={true}
                           onClick={() => setIsUserMenuOpen(false)}
-                          className="flex items-center gap-2.5 px-4 py-2 text-xs text-zinc-300 hover:bg-white/10 hover:text-white font-medium"
+                          className="flex items-center gap-2.5 px-4 py-2 text-xs text-white hover:bg-white/10 font-semibold"
                         >
-                          <User className="w-4 h-4 text-zinc-400" />
+                          <User className="w-4 h-4 text-white" />
                           <span>الملف الشخصي</span>
                         </Link>
-                        
-                        <button
-                          onClick={() => {
-                            setIsUserMenuOpen(false);
-                            setIsCreateTeamOpen(true);
-                          }}
-                          className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-zinc-300 hover:bg-white/10 hover:text-white font-medium text-right"
+
+                        <Link
+                          href={`/profile/${currentUser.username}?studio=open`}
+                          prefetch={true}
+                          onClick={() => setIsUserMenuOpen(false)}
+                          className="flex items-center gap-2.5 px-4 py-2 text-xs text-white hover:bg-white/10 font-semibold"
                         >
-                          <TeamsIcon className="w-4 h-4 text-zinc-400" />
-                          <span>تأسيس فريق جديد</span>
-                        </button>
+                          <Palette className="w-4 h-4 text-white" />
+                          <span>استوديو التخصيص</span>
+                        </Link>
+
+                        {currentUser.team_id ? (
+                          <Link
+                            href={`/teams/${currentUser.team_id}`}
+                            prefetch={true}
+                            onClick={() => setIsUserMenuOpen(false)}
+                            className="flex items-center gap-2.5 px-4 py-2 text-xs text-white hover:bg-white/10 font-semibold"
+                          >
+                            <TeamsIcon className="w-4 h-4 text-white" />
+                            <span>فريقي</span>
+                          </Link>
+                        ) : (
+                          <button
+                            onClick={() => { setIsUserMenuOpen(false); setIsCreateTeamOpen(true); }}
+                            className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-white hover:bg-white/10 font-semibold text-right"
+                          >
+                            <TeamsIcon className="w-4 h-4 text-white" />
+                            <span>تأسيس فريق جديد</span>
+                          </button>
+                        )}
 
                         <Link
                           href="/settings"
                           prefetch={true}
                           onClick={() => setIsUserMenuOpen(false)}
-                          className="flex items-center gap-2.5 px-4 py-2 text-xs text-zinc-300 hover:bg-white/10 hover:text-white font-medium"
+                          className="flex items-center gap-2.5 px-4 py-2 text-xs text-white hover:bg-white/10 font-semibold"
                         >
-                          <SettingsIcon className="w-4 h-4 text-zinc-400" />
+                          <SettingsIcon className="w-4 h-4 text-white" />
                           <span>الإعدادات</span>
                         </Link>
 
+                        {/* Admin — only rendered if profile.role === 'admin' from DB */}
                         {currentUser.role === 'admin' && (
                           <Link
                             href="/admin"
                             prefetch={true}
                             onClick={() => setIsUserMenuOpen(false)}
-                            className="flex items-center gap-2.5 px-4 py-2 text-xs text-[#0095f6] hover:bg-white/10 font-semibold"
+                            className="flex items-center gap-2.5 px-4 py-2 text-xs text-white hover:bg-white/10 font-semibold"
                           >
-                            <ShieldCheck className="w-4 h-4" />
+                            <ShieldCheck className="w-4 h-4 text-white" />
                             <span>لوحة الإدارة</span>
                           </Link>
                         )}
                       </div>
 
-                      <div className="border-t border-white/[0.08] pt-2 px-3">
-                        <div className="text-[10px] font-semibold text-zinc-500 px-1 mb-1.5">
-                          تبديل الحساب السريع:
-                        </div>
-                        <div className="grid grid-cols-2 gap-1 mb-2">
-                          <button
-                            onClick={() => handleSwitchAccount('admin@iraqesportshub.com')}
-                            className="col-span-2 px-2.5 py-1.5 text-[11px] font-black rounded-lg bg-[#0095f6]/15 border border-[#0095f6]/30 text-[#0095f6] hover:bg-[#0095f6]/25 hover:text-white flex items-center justify-center gap-1.5 transition shadow-sm"
-                            title="حساب إدارة المنصة"
-                          >
-                            <ShieldCheck className="w-3.5 h-3.5" />
-                            <span>حساب الإدارة (Admin)</span>
-                          </button>
-                          <button
-                            onClick={() => handleSwitchAccount('shamikhstudio@gmail.com')}
-                            className="px-2 py-1 text-[10px] font-medium rounded bg-white/5 text-zinc-300 hover:bg-white/15 hover:text-white truncate"
-                            title="جواد شامخ"
-                          >
-                            جواد شامخ
-                          </button>
-                          <button
-                            onClick={() => handleSwitchAccount('ahmed@gxesports.com')}
-                            className="px-2 py-1 text-[10px] font-medium rounded bg-white/5 text-zinc-300 hover:bg-white/15 hover:text-white truncate"
-                            title="كابتن GX"
-                          >
-                            كابتن GX
-                          </button>
-                          <button
-                            onClick={() => handleSwitchAccount('haider@babylon.network')}
-                            className="px-2 py-1 text-[10px] font-medium rounded bg-white/5 text-zinc-300 hover:bg-white/15 hover:text-white truncate"
-                            title="ShadowIQ"
-                          >
-                            ShadowIQ
-                          </button>
-                          <button
-                            onClick={() => handleSwitchAccount('test@test.com')}
-                            className="px-2 py-1 text-[10px] font-medium rounded bg-white/5 text-zinc-300 hover:bg-white/15 hover:text-white truncate"
-                            title="علي الصدر"
-                          >
-                            علي الصدر
-                          </button>
-                        </div>
-
-                        <button
+                      {/* Logout */}
+                      <div className="border-t border-white/[0.08] pt-1 px-3 mt-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          fullWidth
                           onClick={handleLogout}
-                          className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#ed4956] hover:bg-[#ed4956]/10 rounded-lg transition"
+                          rightIcon={<LogOut className="w-3.5 h-3.5" />}
+                          className="text-white hover:bg-white/10"
                         >
-                          <LogOut className="w-3.5 h-3.5" />
-                          <span>تسجيل الخروج</span>
-                        </button>
+                          تسجيل الخروج
+                        </Button>
                       </div>
                     </div>
                   )}
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
-                  <Link
-                    href="/auth/login"
-                    prefetch={true}
-                    className="px-3 py-1.5 text-xs font-semibold text-white hover:opacity-80 transition"
-                  >
-                    دخول
+                  <Link href="/auth/login" prefetch={true}>
+                    <Button variant="ghost" size="sm">
+                      دخول
+                    </Button>
                   </Link>
-                  <Link
-                    href="/auth/register"
-                    prefetch={true}
-                    className="px-3 py-1.5 text-xs font-semibold ig-btn-primary rounded-lg"
-                  >
-                    تسجيل
+                  <Link href="/auth/register" prefetch={true}>
+                    <Button variant="primary" size="sm">
+                      تسجيل
+                    </Button>
                   </Link>
                 </div>
               )}
 
-              <button
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="md:hidden p-1.5 text-zinc-400 hover:text-white"
+                className="md:hidden text-zinc-400 hover:text-white"
+                title="القائمة"
               >
                 {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-              </button>
+              </Button>
             </div>
           </div>
 
-          {/* Mobile Dropdown Menu */}
+          {/* Mobile Dropdown */}
           {isMobileMenuOpen && (
             <div className="md:hidden border-t border-white/[0.08] py-2 space-y-1 bg-black">
               {navLinks.map((link) => {
@@ -369,11 +323,10 @@ function NavbarContent() {
                     href={link.href}
                     prefetch={true}
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium ${
-                      isActive
-                        ? 'text-white font-bold bg-white/10'
-                        : 'text-zinc-400 hover:text-white hover:bg-white/5'
-                    }`}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium ${isActive
+                      ? 'text-white font-bold bg-white/10'
+                      : 'text-text-secondary hover:text-white hover:bg-white/5'
+                      }`}
                   >
                     <Icon className="w-4 h-4" />
                     <span>{link.name}</span>
@@ -385,26 +338,11 @@ function NavbarContent() {
         </div>
       </header>
 
-      <CreatePostModal
-        isOpen={isCreatePostOpen}
-        onClose={() => setIsCreatePostOpen(false)}
-        onPostCreated={() => {
-          setIsCreatePostOpen(false);
-          if (typeof window !== 'undefined' && pathname === '/') {
-            window.location.reload();
-          }
-        }}
-      />
 
       <CreateTeamModal
         isOpen={isCreateTeamOpen}
         onClose={() => setIsCreateTeamOpen(false)}
-        onTeamCreated={() => {
-          setIsCreateTeamOpen(false);
-          if (typeof window !== 'undefined' && pathname === '/teams') {
-            window.location.reload();
-          }
-        }}
+        onTeamCreated={() => setIsCreateTeamOpen(false)}
       />
     </>
   );
@@ -412,7 +350,7 @@ function NavbarContent() {
 
 export function Navbar() {
   return (
-    <Suspense fallback={<header className="h-14 bg-black border-b border-white/[0.08]" />}>
+    <Suspense fallback={<header className="h-16 bg-black border-b border-white/[0.08]" />}>
       <NavbarContent />
     </Suspense>
   );

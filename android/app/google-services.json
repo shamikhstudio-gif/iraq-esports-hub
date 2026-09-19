@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "619417296052",
+    "project_id": "esports-hub-6155f",
+    "storage_bucket": "esports-hub-6155f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:619417296052:android:f26ef2c0165ce1a24b0be1",
+        "android_client_info": {
+          "package_name": "com.eshamikh.ieh"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCdjoCyu1_RBub82h0RcfCXkQVyAVmVam4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

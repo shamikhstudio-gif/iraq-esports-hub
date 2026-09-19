@@ -18,7 +18,7 @@ export function generateVerificationEmailHtml(code: string, recipientName: strin
         padding: 40px 20px;
         direction: rtl;
         text-align: right;
-        color: #0f172a;
+        color: #000000;
       }
       .container {
         max-width: 560px;
@@ -38,11 +38,11 @@ export function generateVerificationEmailHtml(code: string, recipientName: strin
       .logo-text {
         font-size: 24px;
         font-weight: 800;
-        color: #0f172a;
+        color: #000000;
       }
       .logo-sub {
         font-size: 13px;
-        color: #b45309;
+        color: #000000;
         font-weight: 600;
         margin-top: 4px;
       }
@@ -53,13 +53,13 @@ export function generateVerificationEmailHtml(code: string, recipientName: strin
       }
       .desc {
         font-size: 15px;
-        color: #475569;
+        color: #52525b;
         line-height: 1.6;
         margin-bottom: 24px;
       }
       .code-box {
         background: #f8fafc;
-        border: 2px dashed #cbd5e1;
+        border: 2px dashed #e4e4e7;
         border-radius: 12px;
         padding: 20px;
         text-align: center;
@@ -70,17 +70,17 @@ export function generateVerificationEmailHtml(code: string, recipientName: strin
         font-size: 34px;
         font-weight: 800;
         letter-spacing: 8px;
-        color: #1e3a8a;
+        color: #000000;
       }
       .code-expiry {
         font-size: 13px;
-        color: #64748b;
+        color: #71717a;
         margin-top: 8px;
       }
       .footer {
         text-align: center;
         font-size: 12px;
-        color: #94a3b8;
+        color: #a1a1aa;
         margin-top: 30px;
         padding-top: 20px;
         border-top: 1px solid #f1f5f9;
@@ -90,13 +90,13 @@ export function generateVerificationEmailHtml(code: string, recipientName: strin
   <body>
     <div class="container">
       <div class="header">
-        <div class="logo-text">شبكة بابل | BABYLON NETWORK</div>
-        <div class="logo-sub">المنصة الأولى للرياضات الإلكترونية في العراق</div>
+        <div class="logo-text">IEH | IRAQ ESPORTS HUB</div>
+        <div class="logo-sub">شبكة الرياضات الإلكترونية العراقية الرسمية</div>
       </div>
       
       <div class="greeting">مرحباً بك ${recipientName}،</div>
       <div class="desc">
-        شكراً لانضمامك إلى شبكة بابل للرياضات الإلكترونية. لتأكيد حسابك، يرجى استخدام رمز التأكيد التالي:
+        شكراً لانضمامك إلى شبكة الرياضات الإلكترونية العراقية (IEH). لتأكيد حسابك، يرجى استخدام رمز التأكيد التالي:
       </div>
       
       <div class="code-box">
@@ -105,7 +105,7 @@ export function generateVerificationEmailHtml(code: string, recipientName: strin
       </div>
       
       <div class="footer">
-        © 2026 شبكة بابل للرياضات الإلكترونية - جمهورية العراق
+        © 2026 شبكة الرياضات الإلكترونية العراقية (IEH) - جمهورية العراق
       </div>
     </div>
   </body>

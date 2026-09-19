@@ -96,12 +96,12 @@ export function CustomSelect({
         disabled={disabled}
         onClick={() => setIsOpen(!isOpen)}
         className={`w-full flex items-center justify-between text-xs px-3.5 py-2.5 rounded-xl border transition-all duration-200 outline-none select-none ${
-          disabled
-            ? 'bg-[#080808] text-zinc-600 border-white/5 cursor-not-allowed'
-            : isOpen
-            ? 'bg-[#181818] border-white/40 ring-1 ring-white/30 text-white shadow-[0_4px_14px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.2)]'
-            : 'bg-[#080808] hover:border-white/25 border-white/10 text-zinc-200 shadow-[inset_0_1px_3px_rgba(0,0,0,0.8),0_1px_0_rgba(255,255,255,0.05)]'
-        } ${error ? 'border-white ring-1 ring-white/40' : ''}`}
+ disabled
+ ? 'bg-[#080808] text-zinc-600 border-white/5 cursor-not-allowed'
+ : isOpen
+ ? 'bg-[#181818] border-white/40 ring-1 ring-white/30 text-white shadow-sm'
+ : 'bg-[#080808] hover:border-white/25 border-white/10 text-zinc-200 shadow-sm'
+ } ${error ? 'border-white ring-1 ring-white/40' : ''}`}
       >
         <div className="flex items-center gap-2 truncate">
           {icon && <span className="text-zinc-400 shrink-0">{icon}</span>}
@@ -121,8 +121,8 @@ export function CustomSelect({
         <div className="flex items-center pl-0.5 shrink-0">
           <ChevronDown
             className={`w-4 h-4 text-zinc-400 transition-transform duration-300 ease-out ${
-              isOpen ? 'rotate-180 text-white' : ''
-            }`}
+ isOpen ? 'rotate-180 text-white' : ''
+ }`}
           />
         </div>
       </button>
@@ -130,7 +130,7 @@ export function CustomSelect({
       {/* Dropdown Menu with Animation */}
       {isOpen && (
         <div
-          className="absolute z-50 mt-1.5 w-full bg-[#0e0e0e] rounded-2xl border border-white/15 shadow-[0_20px_50px_rgba(0,0,0,0.95)] overflow-hidden py-1.5 max-h-60 overflow-y-auto modal-animate"
+          className="absolute z-50 mt-1.5 w-full bg-[#0e0e0e] rounded-2xl border border-white/15 shadow-sm overflow-hidden py-1.5 max-h-60 overflow-y-auto modal-animate"
         >
           {normalizedOptions.length === 0 ? (
             <div className="px-3.5 py-3 text-xs text-zinc-500 text-center">
@@ -145,18 +145,18 @@ export function CustomSelect({
                   type="button"
                   onClick={() => handleSelect(opt.value)}
                   className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs transition-colors duration-150 text-right ${
-                    isSelected
-                      ? 'bg-white text-black font-extrabold'
-                      : 'text-zinc-300 hover:bg-white/10 hover:text-white font-medium'
-                  }`}
+ isSelected
+ ? 'bg-white text-black font-extrabold'
+ : 'text-zinc-300 hover:bg-white/10 hover:text-white font-medium'
+ }`}
                 >
                   <div className="flex items-center gap-2 truncate">
                     {opt.icon && <span className="shrink-0">{opt.icon}</span>}
                     <span className="truncate">{opt.label}</span>
                     {opt.badge && (
                       <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${
-                        isSelected ? 'bg-black text-white border-black' : 'bg-white/10 text-zinc-400 border-white/10'
-                      }`}>
+ isSelected ? 'bg-black text-white border-black' : 'bg-white/10 text-zinc-400 border-white/10'
+ }`}>
                         {opt.badge}
                       </span>
                     )}

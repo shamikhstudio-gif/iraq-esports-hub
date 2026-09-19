@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Bell, X } from 'lucide-react';
 import { NotificationItem } from '@/lib/types';
-import Link from 'next/link';
+import Link from '@/lib/navigation';
 
 export function RealtimeToaster() {
   const [toasts, setToasts] = useState<NotificationItem[]>([]);
@@ -24,6 +24,12 @@ export function RealtimeToaster() {
   }, [userId]);
 
   useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
     if (!userId) return;
 
     const channel = supabase
@@ -34,8 +40,26 @@ export function RealtimeToaster() {
         (payload) => {
           const newNotif = payload.new as NotificationItem;
           setToasts((prev) => [...prev, newNotif]);
+
+          // Trigger Native OS Notification (Windows Action Center / Browser)
+          try {
+            if (typeof window !== 'undefined') {
+              if (window.electronAPI?.showNotification) {
+                window.electronAPI.showNotification({
+                  title: newNotif.title,
+                  body: newNotif.message || newNotif.description || 'تلقيت إشعاراً جديداً في IEH',
+                });
+              } else if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification(newNotif.title, {
+                  body: newNotif.message || newNotif.description || 'تلقيت إشعاراً جديداً في IEH',
+                });
+              }
+            }
+          } catch {
+            // ignore
+          }
           
-          // Auto remove after 5 seconds
+          // Auto remove after 6 seconds
           setTimeout(() => {
             setToasts((current) => current.filter((t) => t.id !== newNotif.id));
           }, 6000);
@@ -55,14 +79,16 @@ export function RealtimeToaster() {
       {toasts.map((toast) => (
         <div 
           key={toast.id} 
-          className="bg-[#121212] border border-white/20 shadow-[0_15px_40px_rgba(0,0,0,0.9)] rounded-2xl p-4 pointer-events-auto flex gap-3 items-start animate-in slide-in-from-bottom-5 fade-in duration-300"
+          className="bg-[#121212] border border-white/20 shadow-sm rounded-2xl p-4 pointer-events-auto flex gap-3 items-start animate-in slide-in-from-bottom-5 fade-in duration-300"
         >
           <div className="w-10 h-10 rounded-xl bg-white text-black flex items-center justify-center shrink-0 shadow-inner">
             <Bell className="w-5 h-5 fill-black" />
           </div>
           <div className="flex-1 min-w-0">
             <h4 className="text-sm font-black text-white leading-tight">{toast.title}</h4>
-            <p className="text-[11px] text-zinc-400 mt-1 line-clamp-2 leading-relaxed">{toast.description}</p>
+            <p className="text-[11px] text-zinc-400 mt-1 line-clamp-2 leading-relaxed">
+              {toast.message || toast.description}
+            </p>
             {toast.link_url && (
               <Link 
                 href={toast.link_url}

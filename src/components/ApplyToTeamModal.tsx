@@ -17,6 +17,7 @@ import {
 import { supabase } from '@/lib/supabase';
 import { Team, Profile } from '@/lib/types';
 import { CustomSelect } from './CustomSelect';
+import { Button } from '@/components/ui';
 
 interface ApplyToTeamModalProps {
   team: Team;
@@ -116,7 +117,7 @@ export function ApplyToTeamModal({
         .eq('team_id', team.id)
         .eq('user_id', userId)
         .eq('status', 'pending')
-        .single();
+        .maybeSingle();
 
       if (existing) {
         throw new Error('لديك طلب انضمام قيد المراجعة بالفعل لهذا الفريق.');
@@ -137,19 +138,26 @@ export function ApplyToTeamModal({
 
       if (insertError) throw insertError;
 
-      // Notify team captain if captain_id exists
+      // Notify team captain if captain_id exists (use 'message' column in notifications)
       if (team.captain_id) {
-        await supabase.from('notifications').insert({
-          user_id: team.captain_id,
-          type: 'general',
-          title: `طلب انضمام جديد لفريق ${team.name}!`,
-          description: `تقدم اللاعب ${currentUser?.full_name || 'لاعب'} بطلب انضمام وتجربة أداء (رتبة: ${rank}).`,
-        });
+        try {
+          await supabase.from('notifications').insert({
+            user_id: team.captain_id,
+            type: 'team_invite',
+            title: `طلب انضمام جديد لفريق ${team.name}!`,
+            message: `تقدم اللاعب ${currentUser?.full_name || currentUser?.username || 'لاعب'} بطلب انضمام وتجربة أداء (رتبة: ${rank}).`,
+            link_url: `/teams/${team.id}`,
+            is_read: false,
+          });
+        } catch (notifErr) {
+          console.warn('Could not send notification to captain:', notifErr);
+        }
       }
 
       onSuccess();
       onClose();
     } catch (err: any) {
+      console.error('Error submitting team join request:', err);
       setErrorMsg(err.message || 'حدث خطأ أثناء تقديم الطلب');
     } finally {
       setIsLoading(false);
@@ -158,7 +166,7 @@ export function ApplyToTeamModal({
 
   return createPortal(
     <div 
-      className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-6 bg-black/90 backdrop-blur-sm"
+      className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-6 bg-black/95"
       onClick={onClose}
     >
       <div 
@@ -288,31 +296,25 @@ export function ApplyToTeamModal({
 
           {/* Submit Button */}
           <div className="pt-2 flex items-center justify-end gap-2">
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="md"
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl text-xs font-bold text-zinc-400 hover:text-white hover:bg-white/10 transition"
             >
               إلغاء
-            </button>
+            </Button>
 
-            <button
+            <Button
               type="submit"
-              disabled={isLoading}
-              className="px-6 py-2.5 btn-3d-primary text-black rounded-xl text-xs font-extrabold flex items-center gap-2 transition"
+              variant="primary"
+              size="md"
+              isLoading={isLoading}
+              icon={<UserPlus className="w-4 h-4" />}
+              className="font-extrabold"
             >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>جاري إرسال الطلب...</span>
-                </>
-              ) : (
-                <>
-                  <UserPlus className="w-4 h-4 text-black" />
-                  <span>إرسال طلب الانضمام</span>
-                </>
-              )}
-            </button>
+              إرسال طلب الانضمام
+            </Button>
           </div>
         </form>
       </div>

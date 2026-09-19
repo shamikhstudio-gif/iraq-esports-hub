@@ -2,8 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { ShieldAlert, Send, CheckCircle2, Clock, AlertTriangle, X } from 'lucide-react';
+import { Send, CheckCircle2, Clock, AlertTriangle, X } from 'lucide-react';
+import { IehLogo } from '@/components/icons/CustomIcons';
 import { NotificationItem } from '@/lib/types';
+import { Button } from '@/components/ui';
 
 interface SuspensionModalProps {
   notification: NotificationItem | null;
@@ -76,7 +78,7 @@ export function SuspensionModal({
 
   return createPortal(
     <div 
-      className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-4 bg-black/90 backdrop-blur-sm overflow-y-auto"
+      className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-4 bg-black/95 overflow-y-auto"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -85,8 +87,8 @@ export function SuspensionModal({
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-white/10 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#1c1c1c] border border-white/20 flex items-center justify-center text-white shrink-0 shadow-sm">
-              <ShieldAlert className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-xl bg-black/80 border border-white/20 p-1.5 flex items-center justify-center text-white shrink-0 shadow-sm">
+              <IehLogo size={24} glow={true} />
             </div>
             <div>
               <h3 className="text-base font-extrabold text-white">
@@ -174,28 +176,26 @@ export function SuspensionModal({
               تم إرسال طلب الدعم الفني مسبقاً (قيد المراجعة الإدارية)
             </div>
           ) : (
-            <button
+            <Button
               onClick={handleDispatchSupport}
-              disabled={isSending}
-              className="w-full sm:flex-1 py-2.5 px-4 btn-3d-primary text-black rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition disabled:opacity-50"
+              isLoading={isSending}
+              icon={<Send className="w-4 h-4" />}
+              variant="primary"
+              size="md"
+              className="w-full sm:flex-1 text-xs font-extrabold"
             >
-              {isSending ? (
-                <span>جاري إرسال طلب الدعم...</span>
-              ) : (
-                <>
-                  <Send className="w-4 h-4 text-black" />
-                  <span>تواصل مع الدعم الفني واستئناف القرار</span>
-                </>
-              )}
-            </button>
+              تواصل مع الدعم الفني واستئناف القرار
+            </Button>
           )}
 
-          <button
+          <Button
             onClick={onClose}
-            className="w-full sm:w-auto py-2.5 px-5 btn-3d-dark text-white rounded-xl text-xs font-semibold transition"
+            variant="secondary"
+            size="md"
+            className="w-full sm:w-auto text-xs font-semibold"
           >
             إغلاق
-          </button>
+          </Button>
         </div>
       </div>
     </div>,

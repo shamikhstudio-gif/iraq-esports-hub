@@ -1,40 +1,35 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
+import Link from '@/lib/navigation';
 import { MapPin, CheckCircle2, Search, Plus, Filter } from 'lucide-react';
 import { TeamsIcon } from '@/components/icons/CustomIcons';
 import { supabase } from '@/lib/supabase';
 import { Team } from '@/lib/types';
 import { CreateTeamModal } from '@/components/CreateTeamModal';
 import { CustomSelect, SelectOption } from '@/components/CustomSelect';
+import { useSwrData } from '@/lib/cache';
+import { TeamCardSkeleton, Button, Badge, Card } from '@/components/ui';
 
 export default function TeamsPage() {
-  const [teams, setTeams] = useState<Team[]>([]);
   const [search, setSearch] = useState('');
   const [cityFilter, setCityFilter] = useState('all');
-  const [isLoading, setIsLoading] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-  useEffect(() => {
-    fetchTeams();
-  }, []);
-
-  const fetchTeams = async () => {
-    setIsLoading(true);
-    const { data } = await supabase
-      .from('teams')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (data) {
-      setTeams(data as Team[]);
-    }
-    setIsLoading(false);
-  };
+  const { data: teams = [], isLoading, mutate } = useSwrData<Team[]>(
+    'teams_list',
+    async () => {
+      const { data } = await supabase
+        .from('teams')
+        .select('*')
+        .order('created_at', { ascending: false });
+      return (data || []) as Team[];
+    },
+    { ttl: 180_000 }
+  );
 
   const handleTeamCreated = (newTeam: Team) => {
-    setTeams((prev) => [newTeam, ...prev]);
+    mutate((prev) => [newTeam, ...(prev || [])]);
   };
 
   const filteredTeams = teams.filter((t) => {
@@ -44,10 +39,10 @@ export default function TeamsPage() {
   });
 
   return (
-    <div className="max-w-6xl mx-auto py-4">
+    <div className="layout-container py-4">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-[#181818] border border-white/20 flex items-center justify-center text-white shadow-[0_4px_12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.2)]">
+          <div className="w-12 h-12 rounded-2xl bg-[#181818] border border-white/20 flex items-center justify-center text-white shadow-sm">
             <TeamsIcon className="w-6 h-6" />
           </div>
           <div>
@@ -60,13 +55,14 @@ export default function TeamsPage() {
           </div>
         </div>
 
-        <button
+        <Button
+          variant="primary"
+          size="sm"
+          icon={<Plus className="w-4 h-4 text-black" />}
           onClick={() => setIsCreateModalOpen(true)}
-          className="px-4 py-2.5 btn-3d-primary text-black rounded-xl text-xs font-extrabold flex items-center gap-2 transition"
         >
-          <Plus className="w-4 h-4 text-black" />
           <span>تسجيل وتأسيس فريق جديد</span>
-        </button>
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 mb-6">
@@ -106,27 +102,31 @@ export default function TeamsPage() {
       </div>
 
       {isLoading ? (
-        <div className="card-3d p-12 text-center text-zinc-400 text-xs font-medium">
-          جاري تحميل الفرق...
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <TeamCardSkeleton key={i} />
+          ))}
         </div>
       ) : filteredTeams.length === 0 ? (
-        <div className="card-3d p-12 text-center text-zinc-400">
+        <Card variant="glass" className="p-12 text-center text-zinc-400">
           <TeamsIcon className="w-10 h-10 mx-auto text-zinc-600 mb-3" />
           <h3 className="font-bold text-sm text-zinc-200">لا توجد فرق مطابقة</h3>
-        </div>
+        </Card>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {filteredTeams.map((team) => (
-            <div key={team.id} className="card-3d overflow-hidden group flex flex-col justify-between text-white">
+            <Card key={team.id} variant="interactive" className="overflow-hidden flex flex-col justify-between text-white">
               <div className="h-28 relative bg-[#050505]">
                 <img
                   src={team.banner_url || 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=800'}
                   alt={team.name}
                   className="w-full h-full object-cover opacity-50 group-hover:scale-105 transition duration-300"
                 />
-                <span className="absolute top-2 left-2 px-2.5 py-0.5 rounded-lg bg-black/90 backdrop-blur text-white text-[10px] font-extrabold border border-white/15 shadow-sm">
-                  [{team.tag}]
-                </span>
+                <div className="absolute top-2 left-2">
+                  <Badge variant="solid" size="xs">
+                    [{team.tag}]
+                  </Badge>
+                </div>
               </div>
 
               <div className="p-4 pt-0 relative flex-1 flex flex-col justify-between">
@@ -135,7 +135,7 @@ export default function TeamsPage() {
                     <img
                       src={team.logo_url || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=200'}
                       alt={team.name}
-                      className="w-16 h-16 rounded-2xl object-cover border-2 border-white/15 shadow-[0_4px_12px_rgba(0,0,0,0.8)] bg-black"
+                      className="w-16 h-16 rounded-2xl object-cover border-2 border-white/15 shadow-sm bg-black"
                     />
                     <div className="flex items-center gap-1 text-[11px] font-bold text-zinc-400">
                       <MapPin className="w-3.5 h-3.5 text-zinc-400" />
@@ -154,44 +154,35 @@ export default function TeamsPage() {
 
                   <div className="flex items-center gap-1.5 flex-wrap mb-4">
                     {team.is_exclusive && (
-                      <span className="px-2 py-0.5 rounded-lg text-[10px] font-extrabold bg-white/15 text-white border border-white/25">
+                      <Badge variant="outline" size="xs">
                         حصرية
-                      </span>
+                      </Badge>
                     )}
-                    <span
-                      className={`px-2 py-0.5 rounded-lg text-[10px] font-extrabold ${
-                        team.recruitment_status === 'open'
-                          ? 'bg-white text-black shadow-xs'
-                          : team.recruitment_status === 'invite_only'
-                          ? 'bg-white/15 text-zinc-300 border border-white/20'
-                          : 'bg-[#080808] text-zinc-500 border border-white/10'
-                      }`}
+                    <Badge
+                      variant={team.recruitment_status === 'open' ? 'solid' : 'default'}
+                      size="xs"
                     >
                       {team.recruitment_status === 'open'
                         ? 'تجارب مفتوحة'
                         : team.recruitment_status === 'invite_only'
                         ? 'بالدعوة'
                         : 'مغلق'}
-                    </span>
+                    </Badge>
                     {team.games?.map((g, i) => (
-                      <span
-                        key={i}
-                        className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-[#080808] text-zinc-300 border border-white/10"
-                      >
+                      <Badge key={i} variant="default" size="xs">
                         {g}
-                      </span>
+                      </Badge>
                     ))}
                   </div>
                 </div>
 
-                <Link
-                  href={`/teams/${team.id}`}
-                  className="w-full py-2 btn-3d-dark text-white rounded-xl text-xs font-bold text-center transition block shadow-sm hover:border-white/30"
-                >
-                  عرض ملف الفريق والتشكيلة والرتب
+                <Link href={`/teams/${team.id}`} className="w-full block">
+                  <Button variant="secondary" size="sm" fullWidth>
+                    عرض ملف الفريق والتشكيلة والرتب
+                  </Button>
                 </Link>
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       )}

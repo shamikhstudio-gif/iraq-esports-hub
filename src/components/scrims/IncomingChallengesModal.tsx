@@ -15,6 +15,7 @@ import {
 import { ScrimLobby, ScrimChallenge, Team } from '@/lib/types';
 import { TeamsIcon, SwordsIcon } from '@/components/icons/CustomIcons';
 import { supabase } from '@/lib/supabase';
+import { Button, Badge } from '@/components/ui';
 
 interface IncomingChallengesModalProps {
   lobby: ScrimLobby;
@@ -99,11 +100,11 @@ export function IncomingChallengesModal({
 
   return createPortal(
     <div 
-      className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-6 bg-black/90 backdrop-blur-md"
+      className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-6 bg-black/95"
       onClick={onClose}
     >
       <div 
-        className="w-full max-w-xl modal-animate rounded-3xl flex flex-col overflow-hidden text-right text-white border border-white/20 bg-[#0e0e0e] shadow-[0_25px_60px_rgba(0,0,0,0.95)]"
+        className="w-full max-w-xl modal-animate rounded-3xl flex flex-col overflow-hidden text-right text-white border border-white/20 bg-[#0e0e0e] shadow-sm"
         dir="rtl"
         onClick={(e) => e.stopPropagation()}
       >
@@ -160,35 +161,37 @@ export function IncomingChallengesModal({
                           <span>{team?.city || 'العراق'}</span>
                         </span>
                         {team?.is_verified && (
-                          <span className="text-emerald-400 flex items-center gap-0.5 text-[10px] font-bold">
-                            <ShieldCheck className="w-3 h-3" />
-                            <span>موثق</span>
-                          </span>
+                          <Badge variant="verified" size="xs">
+                            موثق
+                          </Badge>
                         )}
                       </div>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="sm"
                       onClick={() => handleDecline(c.id)}
                       disabled={isBusy}
-                      className="px-3.5 py-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 text-xs font-bold transition flex items-center gap-1"
+                      icon={<Ban className="w-3.5 h-3.5" />}
                     >
-                      <Ban className="w-3.5 h-3.5" />
-                      <span>رفض</span>
-                    </button>
+                      رفض
+                    </Button>
 
-                    <button
+                    <Button
                       type="button"
+                      variant="primary"
+                      size="sm"
                       onClick={() => handleAccept(c)}
-                      disabled={isBusy}
-                      className="px-5 py-2 btn-3d-primary text-black rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md hover:scale-105"
+                      isLoading={isBusy}
+                      icon={<Check className="w-3.5 h-3.5 stroke-[3]" />}
+                      className="font-black"
                     >
-                      {isBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5 stroke-[3]" />}
-                      <span>قبول ومواجهة الفريق</span>
-                    </button>
+                      قبول ومواجهة الفريق
+                    </Button>
                   </div>
                 </div>
               );
@@ -203,13 +206,14 @@ export function IncomingChallengesModal({
         </div>
 
         <div className="p-4 bg-[#101010] border-t border-white/10 flex justify-end">
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={onClose}
-            className="px-4 py-2 bg-white/10 hover:bg-white/15 text-zinc-300 text-xs font-bold rounded-xl"
           >
             إغلاق
-          </button>
+          </Button>
         </div>
       </div>
     </div>,

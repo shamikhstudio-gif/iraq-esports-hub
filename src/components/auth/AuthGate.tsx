@@ -1,23 +1,15 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import dynamic from 'next/dynamic';
-import { usePathname } from 'next/navigation';
+import { usePathname } from '@/lib/navigation';
 import { AppleAuthExperience } from './AppleAuthExperience';
 import { Navbar } from '@/components/Navbar';
 import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { supabase } from '@/lib/supabase';
 
-// Dynamically import DotLottiePlayer with ssr: false to prevent SSR hydration crashes
-const DotLottiePlayer = dynamic(
-  () => import('@dotlottie/react-player').then((mod) => mod.DotLottiePlayer),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="w-8 h-8 rounded-full border-2 border-[#0095f6] border-t-transparent animate-spin" />
-    ),
-  }
-);
+import { IehLogo } from '@/components/icons/CustomIcons';
+import { GlobalBackgroundEffect } from '@/components/fx/GlobalBackgroundEffect';
+import { FloatingBetaFeedbackButton } from '@/components/feedback/FloatingBetaFeedbackButton';
 
 interface AuthGateProps {
   children: React.ReactNode;
@@ -25,33 +17,67 @@ interface AuthGateProps {
 
 export function AuthGate({ children }: AuthGateProps) {
   const pathname = usePathname();
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+
+  // Instant synchronous check: 0ms initial render for authenticated users
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const savedUserId = localStorage.getItem('babylon_user_id');
+    return savedUserId ? true : null;
+  });
+
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const cached = localStorage.getItem('ieh_cached_user_profile');
+      return cached ? (JSON.parse(cached)?.role || null) : null;
+    } catch {
+      return null;
+    }
+  });
 
   useEffect(() => {
-    // Initial fast check from localStorage
-    if (typeof window !== 'undefined') {
-      const savedUserId = localStorage.getItem('babylon_user_id');
-      if (savedUserId) {
-        setIsAuthenticated(true);
-      } else {
-        setIsAuthenticated(false);
-      }
-    }
-
     checkAuthState();
 
-    // Safety timeout: Ensure splash screen never hangs permanently
-    const timer = setTimeout(() => {
-      setIsAuthenticated((prev) => (prev === null ? false : prev));
-    }, 1200);
+    const { data: authSub } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        setIsAuthenticated(true);
+      } else if (event === 'SIGNED_OUT') {
+        setIsAuthenticated(false);
+        setCurrentUserRole(null);
+      }
+    });
 
-    return () => clearTimeout(timer);
+    return () => {
+      authSub?.subscription?.unsubscribe();
+    };
   }, []);
 
   const checkAuthState = async () => {
     if (typeof window === 'undefined') return;
 
-    const savedUserId = localStorage.getItem('babylon_user_id');
+    let savedUserId = localStorage.getItem('babylon_user_id');
+
+    // Check active Supabase auth session (e.g. fresh from Google OAuth callback)
+    if (!savedUserId) {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData?.session?.user) {
+        const u = sessionData.session.user;
+        const { data: p } = await supabase
+          .from('profiles')
+          .select('id, is_banned, role')
+          .or(`auth_user_id.eq.${u.id},email.ilike.${u.email}`)
+          .maybeSingle();
+
+        if (p && !p.is_banned) {
+          savedUserId = p.id;
+          localStorage.setItem('babylon_user_id', p.id);
+          setIsAuthenticated(true);
+          setCurrentUserRole(p.role || null);
+          return;
+        }
+      }
+    }
+
     if (!savedUserId) {
       setIsAuthenticated(false);
       return;
@@ -60,12 +86,21 @@ export function AuthGate({ children }: AuthGateProps) {
     try {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('id, is_banned')
+        .select('id, is_banned, role')
         .eq('id', savedUserId)
         .maybeSingle();
 
       if (profile && !profile.is_banned) {
         setIsAuthenticated(true);
+        setCurrentUserRole(profile.role || null);
+        try {
+          const cached = localStorage.getItem('ieh_cached_user_profile');
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            parsed.role = profile.role;
+            localStorage.setItem('ieh_cached_user_profile', JSON.stringify(parsed));
+          }
+        } catch {}
       } else if (profile?.is_banned) {
         localStorage.removeItem('babylon_user_id');
         setIsAuthenticated(false);
@@ -79,61 +114,83 @@ export function AuthGate({ children }: AuthGateProps) {
   };
 
   const isAuthRoute = pathname?.startsWith('/auth');
+  const isCallbackRoute = pathname?.startsWith('/auth/desktop-callback') || pathname?.startsWith('/auth/mobile-callback');
+  const protectedRoutes = ['/messages', '/notifications', '/settings', '/admin'];
+  const isProtected = protectedRoutes.some((route) => pathname?.startsWith(route));
 
-  // Lottie Splash Screen — pure animation, pure black background
+  // Allow OAuth callback routes through unconditionally
+  if (isCallbackRoute) {
+    return <>{children}</>;
+  }
+
+  // Instant local monochrome splash screen (zero external network requests)
   if (isAuthenticated === null) {
     return (
-      <div className="min-h-screen w-full bg-black flex items-center justify-center select-none">
-        <div className="w-36 h-36 flex items-center justify-center">
-          <DotLottiePlayer
-            src="https://lottie.host/6442f868-07fa-4857-85a4-14701d70a983/CuWX7HpXuL.lottie"
-            autoplay
-            loop
-          />
+      <div className="min-h-screen w-full bg-black flex flex-col items-center justify-center select-none">
+        <div className="w-20 h-20 rounded-2xl bg-[#121212] border border-white/15 flex items-center justify-center shadow-2xl animate-pulse">
+          <IehLogo size={44} glow={true} />
         </div>
       </div>
     );
   }
 
-  // Not authenticated -> Show Instagram split-screen auth experience
+  // Not authenticated -> Block all access and show auth experience
   if (!isAuthenticated) {
     return (
-      <AppleAuthExperience
-        initialMode={pathname?.includes('/register') ? 'register' : 'login'}
-        onAuthSuccess={() => {
-          setIsAuthenticated(true);
-        }}
-      />
+      <>
+        <AppleAuthExperience
+          initialMode={pathname?.includes('/register') ? 'register' : 'login'}
+          onAuthSuccess={() => {
+            setIsAuthenticated(true);
+          }}
+        />
+        <FloatingBetaFeedbackButton />
+      </>
     );
   }
 
-  // If authenticated but directly visiting auth routes
+  // If authenticated but directly visiting auth routes -> redirect to home
   if (isAuthRoute) {
-    return <>{children}</>;
+    if (typeof window !== 'undefined') {
+      window.location.href = '/';
+    }
+    return null;
   }
+
+  const isHomePage = pathname === '/';
 
   // Authenticated & on regular app routes
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col">
-      <Navbar />
-      <main className="flex-1 max-w-[935px] w-full mx-auto px-4 py-5 pb-20 md:pb-6">
-        {children}
-      </main>
-      <footer className="hidden md:block border-t border-white/[0.08] py-6 text-center text-xs text-zinc-500">
-        <div className="max-w-[935px] mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="font-medium text-zinc-500">
-            شبكة IEH للرياضات الإلكترونية © 2026 - جميع الحقوق محفوظة
-          </div>
-          <div className="flex items-center gap-4 text-zinc-500 font-medium">
-            <span>admin@iraqesportshub.com</span>
-            <span>•</span>
-            <span>ميثاق النزاهة التنافسية</span>
-            <span>•</span>
-            <span>الدعم الفني</span>
-          </div>
-        </div>
-      </footer>
-      <MobileBottomNav />
+    <div className={`min-h-screen bg-black text-white flex flex-col relative overflow-x-clip ${isHomePage ? 'lg:h-screen lg:overflow-hidden' : ''}`}>
+      <GlobalBackgroundEffect />
+      <div className={`relative z-10 flex flex-col ${isHomePage ? 'min-h-screen lg:min-h-0 lg:h-screen lg:overflow-hidden' : 'min-h-screen'}`}>
+        <Navbar />
+        <main className={`flex-1 layout-container px-4 ${
+          isHomePage
+            ? 'py-3 sm:py-4 lg:py-3.5 lg:min-h-0 lg:overflow-hidden pb-20 lg:pb-0'
+            : 'py-5 pb-20 md:pb-6'
+        }`}>
+          {children}
+        </main>
+        {!isHomePage && (
+          <footer className="hidden md:block border-t border-white/[0.08] py-6 text-center text-xs text-zinc-500">
+            <div className="layout-container px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="font-medium text-zinc-500">
+                شبكة IEH للرياضات الإلكترونية © 2026 - جميع الحقوق محفوظة
+              </div>
+              <div className="flex items-center gap-4 text-zinc-500 font-medium">
+                <span>admin@iraqesportshub.com</span>
+                <span>•</span>
+                <span>ميثاق النزاهة التنافسية</span>
+                <span>•</span>
+                <span>الدعم الفني</span>
+              </div>
+            </div>
+          </footer>
+        )}
+        <FloatingBetaFeedbackButton />
+        <MobileBottomNav />
+      </div>
     </div>
   );
 }
