@@ -718,3 +718,9 @@ span.bg-danger:not([class*="bg-danger/"]) {
 .animate-heart-particle {
   animation: heart-particle 0.55s cubic-bezier(0.12, 0.8, 0.32, 1) forwards;
 }
+
+/* Feed performance optimization: content-visibility allows offscreen posts to skip layout */
+.feed-card-contain {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 350px;
+}

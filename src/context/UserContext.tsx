@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { supabase } from '@/lib/supabase';
 import { Profile } from '@/lib/types';
 import { AUTH_USER_KEY } from '@/lib/constants';
+import { removeCurrentDeviceSession, checkSessionValidity } from '@/lib/deviceSession';
 
 const CACHED_PROFILE_KEY = 'ieh_cached_user_profile';
 
@@ -228,6 +229,30 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     };
   }, [fetchUser]);
 
+  // Verify that this device session hasn't been terminated remotely
+  useEffect(() => {
+    if (!userId) return;
+
+    const verifySession = async () => {
+      const isValid = await checkSessionValidity(userId);
+      if (!isValid) {
+        logout();
+      }
+    };
+
+    const handleFocus = () => {
+      verifySession();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    const interval = setInterval(verifySession, 60_000); // Check every 60 seconds
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      clearInterval(interval);
+    };
+  }, [userId]);
+
   const updateUser = useCallback((partial: Partial<Profile>) => {
     setUser((prev) => {
       if (!prev) return null;
@@ -240,6 +265,16 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
+    const currentUid = userId || (typeof window !== 'undefined' ? localStorage.getItem(AUTH_USER_KEY) : null);
+    
+    // 1. Immediately delete remote & local device session
+    try {
+      await removeCurrentDeviceSession(currentUid);
+    } catch (err) {
+      console.warn('Error removing device session on logout:', err);
+    }
+
+    // 2. Clear user state and storage
     if (typeof window !== 'undefined') {
       localStorage.removeItem(AUTH_USER_KEY);
       localStorage.removeItem(CACHED_PROFILE_KEY);
@@ -262,7 +297,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // ignore
     }
-  }, []);
+  }, [userId]);
 
   const value: UserContextValue = {
     user,

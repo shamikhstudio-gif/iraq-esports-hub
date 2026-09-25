@@ -26,10 +26,14 @@ export function SponsorVaultWidget() {
 
   const checkCooldown = () => {
     const lastWatch = localStorage.getItem(COOLDOWN_KEY);
-    if (!lastWatch) { setCooldownRemaining(0); return; }
+    if (!lastWatch) {
+      setCooldownRemaining((prev) => (prev === 0 ? prev : 0));
+      return;
+    }
     const diff = Date.now() - parseInt(lastWatch);
     const remaining = Math.max(0, COOLDOWN_MS - diff);
-    setCooldownRemaining(Math.ceil(remaining / 1000));
+    const inSeconds = Math.ceil(remaining / 1000);
+    setCooldownRemaining((prev) => (prev === inSeconds ? prev : inSeconds));
   };
 
   const handleOpenVault = () => {

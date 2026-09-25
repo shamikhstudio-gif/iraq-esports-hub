@@ -67,16 +67,42 @@ export async function fetchPosts({
 }
 
 /**
- * Delete a post by ID (only if caller owns it).
+ * Delete a post by ID (caller must be author or admin).
  */
-export async function deletePost(postId: string, authorId: string): Promise<boolean> {
-  const { error } = await supabase
-    .from('posts')
-    .delete()
-    .eq('id', postId)
-    .eq('author_id', authorId);
-  return !error;
+export async function deletePost(postId: string, authorId: string, isAdmin?: boolean): Promise<boolean> {
+  let query = supabase.from('posts').delete().eq('id', postId);
+  if (!isAdmin) {
+    query = query.eq('author_id', authorId);
+  }
+  const { error } = await query;
+  if (error) {
+    console.error('deletePost error:', error.message || error);
+    return false;
+  }
+  return true;
 }
+
+/**
+ * Update/Edit a post by ID (caller must be author or admin).
+ */
+export async function updatePost(
+  postId: string,
+  authorId: string,
+  updates: { content: string; game?: string; post_type?: Post['post_type'] },
+  isAdmin?: boolean
+): Promise<{ success: boolean; data?: Partial<Post>; error?: string }> {
+  let query = supabase.from('posts').update(updates).eq('id', postId);
+  if (!isAdmin) {
+    query = query.eq('author_id', authorId);
+  }
+  const { data, error } = await query.select().maybeSingle();
+  if (error) {
+    console.error('updatePost error:', error.message || error);
+    return { success: false, error: error.message };
+  }
+  return { success: true, data: data as Partial<Post> };
+}
+
 
 /**
  * Fetch a single post by ID.

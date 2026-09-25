@@ -23,7 +23,7 @@ import { AvatarWithDecoration } from '@/components/ui/AvatarWithDecoration';
 import { PullToRefresh } from '@/components/feed/PullToRefresh';
 import { useUser } from '@/context/UserContext';
 
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 10;
 
 function HomeContent() {
   const router = useRouter();
@@ -86,6 +86,14 @@ function HomeContent() {
     mutate((prev) => [newPost, ...(prev || [])]);
   };
 
+  const handlePostDeleted = useCallback((postId: string) => {
+    mutate((prev) => (prev || []).filter((p) => p.id !== postId));
+  }, [mutate]);
+
+  const handlePostUpdated = useCallback((updatedPost: Partial<Post> & { id: string }) => {
+    mutate((prev) => (prev || []).map((p) => (p.id === updatedPost.id ? { ...p, ...updatedPost } : p)));
+  }, [mutate]);
+
   const handleRefreshFeed = useCallback(async () => {
     const currentUserId = typeof window !== 'undefined' ? localStorage.getItem(AUTH_USER_KEY) : null;
     const freshData = await fetchPosts({
@@ -122,7 +130,7 @@ function HomeContent() {
       { 
         root: scrollRoot,
         threshold: 0.1, 
-        rootMargin: '300px' 
+        rootMargin: '250px' 
       }
     );
 
@@ -132,13 +140,6 @@ function HomeContent() {
     };
   }, [loadMorePosts, hasMore, isLoading, isLoadingMore]);
 
-  const handlePostsScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    if (!hasMore || isLoading || isLoadingMore) return;
-    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-    if (scrollHeight - (scrollTop + clientHeight) < 400) {
-      loadMorePosts();
-    }
-  };
 
   const handleTypeSelect = (type: string) => {
     if (type === 'all') {
@@ -152,7 +153,6 @@ function HomeContent() {
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:h-full lg:min-h-0">
       <div 
         ref={postsContainerRef}
-        onScroll={handlePostsScroll}
         className="lg:col-span-8 space-y-4 lg:h-full lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain no-scrollbar pb-6"
       >
         <PullToRefresh
@@ -217,7 +217,12 @@ function HomeContent() {
         ) : (
           <div className="space-y-3">
             {posts.map((post) => (
-              <PostCard key={post.id} post={post} />
+              <PostCard 
+                key={post.id} 
+                post={post} 
+                onDelete={handlePostDeleted}
+                onPostUpdated={handlePostUpdated}
+              />
             ))}
 
             {/* Bottom Sentinel for Infinite Scroll */}

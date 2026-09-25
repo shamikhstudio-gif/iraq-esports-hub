@@ -6,6 +6,8 @@ export interface LucideProps extends React.HTMLAttributes<HTMLSpanElement> {
   color?: string;
   strokeWidth?: number;
   className?: string;
+  fill?: string;
+  filled?: boolean;
 }
 
 export type LucideIcon = React.ForwardRefExoticComponent<LucideProps & React.RefAttributes<HTMLSpanElement>>;
@@ -58,12 +60,18 @@ function createMaterialBridgeIcon(
         ...style,
       };
 
+      const isExplicitlyFilled = (props as any).filled !== undefined
+        ? Boolean((props as any).filled)
+        : (props as any).fill !== undefined
+          ? (props as any).fill !== 'none' && (props as any).fill !== 'transparent'
+          : className.includes('fill-white') || className.includes('fill-current') || (className.includes('fill-') && !className.includes('fill-none') && !className.includes('fill-transparent')) || defaultFilled;
+
       return (
         <Icon
           ref={ref}
           name={symbolName}
           size={computedSize}
-          filled={defaultFilled}
+          filled={isExplicitlyFilled}
           weight={computedWeight}
           className={combinedClass}
           style={dynamicStyle}
@@ -163,6 +171,7 @@ export const Save = createMaterialBridgeIcon('save', false, '');
 export const Scale = createMaterialBridgeIcon('balance', false, '');
 export const Search = createMaterialBridgeIcon('search', false, '');
 export const Send = createMaterialBridgeIcon('send', false, '');
+export const SendHorizontal = createMaterialBridgeIcon('send', false, '');
 export const Settings = createMaterialBridgeIcon('settings', false, '');
 export const Share2 = createMaterialBridgeIcon('share', false, '');
 export const Shield = createMaterialBridgeIcon('shield', false, '');
@@ -279,6 +288,7 @@ const iconCache: Record<string, LucideIcon> = {
   Scale,
   Search,
   Send,
+  SendHorizontal,
   Settings,
   Share2,
   Shield,

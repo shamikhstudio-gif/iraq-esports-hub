@@ -213,6 +213,51 @@ export async function syncRemoteSessions(userId: string): Promise<DeviceSession[
   return getActiveSessions(userId);
 }
 
+export async function removeCurrentDeviceSession(userId?: string | null): Promise<void> {
+  if (typeof window === 'undefined') return;
+  const currentDeviceId = localStorage.getItem('ieh_device_id');
+  if (!currentDeviceId) return;
+
+  if (userId) {
+    const storageKey = `ieh_sessions_${userId}`;
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) {
+        const parsed: DeviceSession[] = JSON.parse(raw);
+        const filtered = parsed.filter(s => s.id !== currentDeviceId);
+        localStorage.setItem(storageKey, JSON.stringify(filtered));
+      }
+    } catch (e) {}
+  }
+
+  try {
+    await supabase.from('user_device_sessions').delete().eq('id', currentDeviceId);
+  } catch (err) {
+    console.warn('Failed to remove current device session:', err);
+  }
+}
+
+export async function checkSessionValidity(userId: string): Promise<boolean> {
+  if (typeof window === 'undefined' || !userId) return true;
+  const currentDeviceId = localStorage.getItem('ieh_device_id');
+  if (!currentDeviceId) return true;
+
+  try {
+    const { data, error } = await supabase
+      .from('user_device_sessions')
+      .select('id')
+      .eq('id', currentDeviceId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (error) return true; // Fail open on network error to prevent accidental lockouts
+    // If null, the session was terminated remotely
+    return !!data;
+  } catch {
+    return true;
+  }
+}
+
 export function terminateSession(userId: string, sessionId: string): DeviceSession[] {
   if (typeof window === 'undefined') return [];
   const storageKey = `ieh_sessions_${userId}`;
@@ -243,3 +288,4 @@ export function terminateAllOtherSessions(userId: string): DeviceSession[] {
 
   return remaining;
 }
+

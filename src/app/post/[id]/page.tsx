@@ -139,6 +139,7 @@ export default function PostDetailPage() {
           <PostCard 
             post={post} 
             onDelete={handleDelete}
+            onPostUpdated={(updated) => setPost((prev) => (prev ? { ...prev, ...updated } : prev))}
             initialShowComments={true} 
             isDetailPage={true}
           />

@@ -193,9 +193,13 @@ export interface Comment {
   id: string;
   post_id: string;
   author_id: string;
+  parent_id?: string | null;
   content: string;
+  likes_count?: number;
+  is_liked?: boolean;
   created_at: string;
   author?: Profile;
+  replies?: Comment[];
 }
 
 export interface NotificationItem {
