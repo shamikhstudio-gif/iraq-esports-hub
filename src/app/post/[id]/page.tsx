@@ -78,7 +78,7 @@ export default function PostDetailPage() {
   };
 
   return (
-    <div className="w-full max-w-3xl lg:max-w-4xl mx-auto space-y-4 py-2 animate-in fade-in duration-200">
+    <div className="w-full max-w-4xl lg:max-w-5xl mx-auto space-y-4 py-2 animate-in fade-in duration-200">
       {/* Navigation Breadcrumb / Top Bar */}
       <div className="flex items-center justify-between px-1">
         <button

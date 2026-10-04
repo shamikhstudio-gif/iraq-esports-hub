@@ -90,7 +90,7 @@
 /* ===== Layout Container ===== */
 /* One global variable for the entire website width. No spaghetti code. */
 :root {
-  --layout-width: 1200px;
+  --layout-width: 1320px;
   --btn-radius: 8px;
   --btn-py: 10px;
   /* <--- 1 SINGLE NUMBER TO CONTROL BUTTON TALLNESS */

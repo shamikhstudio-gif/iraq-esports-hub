@@ -2,11 +2,11 @@
 
 import React, { useState, useEffect, useRef, memo } from 'react';
 import Link, { useRouter, usePathname } from '@/lib/navigation';
-import { 
-  Heart, 
-  Share2, 
-  CheckCircle, 
-  Megaphone, 
+import {
+  Heart,
+  Share2,
+  CheckCircle,
+  Megaphone,
   Gamepad2,
   MessageCircle,
   X,
@@ -49,9 +49,39 @@ const LIKE_PARTICLES = [
   { x: '11px', y: '11px' },
 ];
 
-function PostCardComponent({ 
-  post, 
-  onDelete, 
+function renderCommentContent(
+  text: string,
+  onMentionClick?: (username: string) => void
+) {
+  if (!text) return null;
+  const parts = text.split(/(@[\w\u0600-\u06FF]+)/g);
+  return parts.map((part, index) => {
+    if (part.startsWith('@')) {
+      const username = part.slice(1);
+      return (
+        <button
+          key={index}
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onMentionClick) {
+              onMentionClick(username);
+            }
+          }}
+          className="inline-flex items-center font-bold text-white bg-white/10 hover:bg-white/25 active:scale-95 transition-all px-1.5 py-0.5 rounded text-[11px] mx-0.5 align-baseline cursor-pointer"
+          title={`عرض تعليق @${username}`}
+        >
+          {part}
+        </button>
+      );
+    }
+    return <span key={index}>{part}</span>;
+  });
+}
+
+function PostCardComponent({
+  post,
+  onDelete,
   onPostUpdated,
   initialShowComments = false,
   isDetailPage: propIsDetailPage,
@@ -84,13 +114,92 @@ function PostCardComponent({
   const [showComments, setShowComments] = useState(initialShowComments);
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
-  const [replyingTo, setReplyingTo] = useState<{ id: string; authorName: string } | null>(null);
+  const [replyingTo, setReplyingTo] = useState<{ id: string; authorName: string; isSubReply?: boolean } | null>(null);
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [likedCommentIds, setLikedCommentIds] = useState<Set<string>>(new Set());
+  const [highlightedCommentId, setHighlightedCommentId] = useState<string | null>(null);
+  const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const commentInputRef = useRef<HTMLInputElement | null>(null);
 
   const currentUserId = currentUser?.id || (typeof window !== 'undefined' ? localStorage.getItem(AUTH_USER_KEY) : null);
   const canManage = Boolean(currentUserId && (currentUserId === currentPost.author_id || currentUser?.role === 'admin'));
+
+  useEffect(() => {
+    return () => {
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const triggerCommentHighlight = (targetId: string) => {
+    if (highlightTimeoutRef.current) {
+      clearTimeout(highlightTimeoutRef.current);
+    }
+    setHighlightedCommentId(targetId);
+    triggerHaptic('light');
+
+    setTimeout(() => {
+      const el = document.getElementById(`comment-box-${targetId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 40);
+
+    highlightTimeoutRef.current = setTimeout(() => {
+      setHighlightedCommentId(null);
+    }, 1800);
+  };
+
+  const handleMentionClick = (username: string, rootComment: Comment, currentReply?: Comment) => {
+    // 1. Search in replies of this root comment (preferring earlier ones)
+    if (rootComment.replies && rootComment.replies.length > 0) {
+      const replies = rootComment.replies;
+      const currentIndex = currentReply ? replies.findIndex((r) => r.id === currentReply.id) : -1;
+      const candidates = currentIndex > 0 ? replies.slice(0, currentIndex).reverse() : [...replies].reverse();
+      const matched = candidates.find(
+        (r) =>
+          r.author?.username?.toLowerCase() === username.toLowerCase() ||
+          r.author?.full_name?.toLowerCase() === username.toLowerCase()
+      );
+      if (matched) {
+        triggerCommentHighlight(matched.id);
+        return;
+      }
+    }
+
+    // 2. Check root comment itself
+    if (
+      rootComment.author?.username?.toLowerCase() === username.toLowerCase() ||
+      rootComment.author?.full_name?.toLowerCase() === username.toLowerCase()
+    ) {
+      triggerCommentHighlight(rootComment.id);
+      return;
+    }
+
+    // 3. Fallback: Search all comments in the post
+    for (const c of comments) {
+      if (
+        c.author?.username?.toLowerCase() === username.toLowerCase() ||
+        c.author?.full_name?.toLowerCase() === username.toLowerCase()
+      ) {
+        triggerCommentHighlight(c.id);
+        return;
+      }
+      const rMatch = c.replies?.find(
+        (r) =>
+          r.author?.username?.toLowerCase() === username.toLowerCase() ||
+          r.author?.full_name?.toLowerCase() === username.toLowerCase()
+      );
+      if (rMatch) {
+        triggerCommentHighlight(rMatch.id);
+        return;
+      }
+    }
+
+    // 4. Default: navigate to profile
+    router.push(`/profile/${username}`);
+  };
 
   // Sync prop changes
   useEffect(() => {
@@ -321,10 +430,19 @@ function PostCardComponent({
     }
   };
 
-  const handleStartReply = (targetComment: Comment) => {
-    const authorName = targetComment.author?.username || targetComment.author?.full_name || 'لاعب';
-    setReplyingTo({ id: targetComment.id, authorName });
+  const handleStartReply = (rootComment: Comment, targetReply?: Comment) => {
+    const targetUser = targetReply?.author || rootComment.author;
+    const authorName = targetUser?.username || targetUser?.full_name || 'لاعب';
+    setReplyingTo({
+      id: rootComment.id,
+      authorName,
+      isSubReply: !!targetReply,
+    });
     if (!showComments) setShowComments(true);
+    if (targetReply) {
+      const mentionPrefix = `@${authorName} `;
+      setNewComment((prev) => (prev.startsWith(mentionPrefix) ? prev : `${mentionPrefix}${prev.trimStart()}`));
+    }
     setTimeout(() => {
       commentInputRef.current?.focus();
     }, 50);
@@ -453,9 +571,8 @@ function PostCardComponent({
       id={`post-${currentPost.id}`}
       variant="glass"
       onClick={handleCardClick}
-      className={`feed-card-contain mb-4 overflow-hidden relative group transition-all duration-150 ${
-        !isDetailPage && !isEditing ? 'cursor-pointer hover:border-white/25 hover:bg-white/[0.02]' : ''
-      }`}
+      className={`feed-card-contain mb-4 overflow-hidden relative group transition-all duration-150 ${!isDetailPage && !isEditing ? 'cursor-pointer hover:border-white/25 hover:bg-white/[0.02]' : ''
+        }`}
     >
       {/* Top Boosted / Ultra HD Badges */}
       {(currentPost.is_boosted || currentPost.is_ultra_hd) && (
@@ -540,7 +657,7 @@ function PostCardComponent({
               </Button>
 
               {showMenu && (
-                <div 
+                <div
                   onClick={(e) => e.stopPropagation()}
                   className="absolute left-0 top-full mt-1.5 w-36 bg-black border border-white/20 rounded-xl shadow-2xl p-1 z-30 animate-in fade-in zoom-in-95 duration-150"
                 >
@@ -575,8 +692,8 @@ function PostCardComponent({
 
       {/* Delete Confirmation Modal / Banner */}
       {showDeleteConfirm && (
-        <div 
-          onClick={(e) => e.stopPropagation()} 
+        <div
+          onClick={(e) => e.stopPropagation()}
           className="mx-4 mb-3 p-3.5 rounded-xl bg-white/[0.05] border border-white/25 flex flex-col sm:flex-row items-center justify-between gap-3 animate-in fade-in duration-150"
         >
           <div className="flex items-center gap-2 text-xs text-white font-bold">
@@ -606,8 +723,8 @@ function PostCardComponent({
 
       {/* Caption or Edit Form */}
       {isEditing ? (
-        <div 
-          onClick={(e) => e.stopPropagation()} 
+        <div
+          onClick={(e) => e.stopPropagation()}
           className="px-4 pb-3 space-y-3"
         >
           <textarea
@@ -679,12 +796,12 @@ function PostCardComponent({
       {currentPost.media_urls && currentPost.media_urls.length > 0 && (
         <div className="px-3 pb-3">
           <div className="w-full max-h-[500px] overflow-hidden rounded-xl border border-white/10 bg-black/50 relative shadow-inner">
-            <img 
-              src={currentPost.media_urls[0]} 
-              alt="مرفق المنشور" 
+            <img
+              src={currentPost.media_urls[0]}
+              alt="مرفق المنشور"
               loading="lazy"
               decoding="async"
-              className="w-full h-full object-cover transform transition-transform duration-700 hover:scale-105" 
+              className="w-full h-full object-cover transform transition-transform duration-700 hover:scale-105"
             />
           </div>
         </div>
@@ -701,10 +818,10 @@ function PostCardComponent({
       {/* Action Bar */}
       <div className="px-2 py-2 flex items-center justify-between border-t border-white/[0.04] bg-white/[0.01]">
         <div className="flex items-center gap-1">
-          <button 
+          <button
             type="button"
-            onClick={handleLikeToggle} 
-            className="group flex items-center gap-2 px-2.5 py-1.5 rounded-full transition-all cursor-pointer select-none text-zinc-400 hover:text-white" 
+            onClick={handleLikeToggle}
+            className="group flex items-center gap-2 px-2.5 py-1.5 rounded-full transition-all cursor-pointer select-none text-zinc-400 hover:text-white"
             title="إعجاب"
           >
             <div className="relative flex items-center justify-center p-1">
@@ -721,32 +838,29 @@ function PostCardComponent({
                 </>
               )}
 
-              <Heart 
+              <Heart
                 fill={isLiked ? '#ffffff' : 'none'}
                 color={isLiked ? '#ffffff' : 'currentColor'}
-                className={`w-[19px] h-[19px] transition-all duration-200 ${
-                  isBursting ? 'animate-heart-pop' : ''
-                } ${
-                  isLiked 
-                    ? '!fill-white !text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.7)]' 
+                className={`w-[19px] h-[19px] transition-all duration-200 ${isBursting ? 'animate-heart-pop' : ''
+                  } ${isLiked
+                    ? '!fill-white !text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.7)]'
                     : '!fill-none text-zinc-400 group-hover:text-white group-hover:scale-110'
-                }`} 
+                  }`}
               />
             </div>
 
             {likesCount > 0 && (
-              <span className={`text-xs font-bold font-mono pt-0.5 transition-colors ${
-                isLiked ? 'text-white' : 'text-zinc-400 group-hover:text-zinc-200'
-              }`}>
+              <span className={`text-xs font-bold font-mono pt-0.5 transition-colors ${isLiked ? 'text-white' : 'text-zinc-400 group-hover:text-zinc-200'
+                }`}>
                 {likesCount}
               </span>
             )}
           </button>
 
-          <button 
+          <button
             type="button"
-            onClick={toggleComments} 
-            className="group flex items-center gap-2 px-3 py-2 rounded-full transition-all text-zinc-400 hover:bg-white/[0.06] hover:text-white cursor-pointer" 
+            onClick={toggleComments}
+            className="group flex items-center gap-2 px-3 py-2 rounded-full transition-all text-zinc-400 hover:bg-white/[0.06] hover:text-white cursor-pointer"
             title="التعليقات"
           >
             <div className="p-1.5 rounded-full transition-transform group-active:scale-75">
@@ -757,10 +871,10 @@ function PostCardComponent({
             )}
           </button>
 
-          <button 
+          <button
             type="button"
-            onClick={handleShare} 
-            className="group relative flex items-center gap-2 px-3 py-2 rounded-full transition-all text-zinc-400 hover:bg-white/[0.06] hover:text-white cursor-pointer" 
+            onClick={handleShare}
+            className="group relative flex items-center gap-2 px-3 py-2 rounded-full transition-all text-zinc-400 hover:bg-white/[0.06] hover:text-white cursor-pointer"
             title="مشاركة"
           >
             <div className="p-1.5 rounded-full transition-transform group-active:scale-75">
@@ -785,14 +899,14 @@ function PostCardComponent({
 
       {/* Expanded Comments & Nested Replies */}
       {showComments && (
-        <div 
-          onClick={(e) => e.stopPropagation()} 
+        <div
+          onClick={(e) => e.stopPropagation()}
           className="px-4 pb-4 pt-3 bg-black/40 border-t border-white/[0.06]"
         >
           {comments.length === 0 ? (
             <div className="text-center py-6 text-xs text-zinc-500 font-medium">كن أول من يعلق على هذا المنشور.</div>
           ) : (
-            <div className="space-y-3.5 max-h-80 overflow-y-auto pr-1 custom-scrollbar">
+            <div className="space-y-3.5 max-h-80 overflow-y-auto px-2 py-1 custom-scrollbar">
               {comments.map((comment) => {
                 const isCommentLiked = likedCommentIds.has(comment.id);
                 const commentLikes = comment.likes_count || 0;
@@ -811,7 +925,13 @@ function PostCardComponent({
                         />
                       </Link>
                       <div className="flex-1 min-w-0">
-                        <div className="bg-white/[0.04] border border-white/[0.06] rounded-2xl rounded-tr-sm px-4 py-2.5">
+                        <div
+                          id={`comment-box-${comment.id}`}
+                          className={`border rounded-2xl rounded-tr-sm px-4 py-2.5 transition-all duration-300 ${highlightedCommentId === comment.id
+                            ? 'ring-2 ring-white bg-white/20 shadow-[0_0_20px_rgba(255,255,255,0.4)] scale-[1.01]'
+                            : 'bg-white/[0.04] border-white/[0.06]'
+                            }`}
+                        >
                           <div className="flex items-center gap-2 mb-1">
                             <Link href={`/profile/${comment.author?.username || 'player'}`} className="font-bold text-[13px] text-white hover:underline truncate">
                               {comment.author?.username || comment.author?.full_name || 'لاعب'}
@@ -821,7 +941,9 @@ function PostCardComponent({
                               {new Date(comment.created_at).toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' })}
                             </span>
                           </div>
-                          <p className="text-[13px] text-zinc-300 leading-relaxed break-words">{comment.content}</p>
+                          <p className="text-[13px] text-zinc-300 leading-relaxed break-words">
+                            {renderCommentContent(comment.content, (u) => handleMentionClick(u, comment))}
+                          </p>
                         </div>
 
                         {/* Comment Action Bar (Like & Reply) */}
@@ -829,9 +951,8 @@ function PostCardComponent({
                           <button
                             type="button"
                             onClick={() => handleToggleCommentLike(comment.id, comment.likes_count)}
-                            className={`flex items-center gap-1 hover:text-white transition cursor-pointer ${
-                              isCommentLiked ? 'text-white font-black' : ''
-                            }`}
+                            className={`flex items-center gap-1 hover:text-white transition cursor-pointer ${isCommentLiked ? 'text-white font-black' : ''
+                              }`}
                           >
                             <Heart className={`w-3.5 h-3.5 ${isCommentLiked ? 'fill-white text-white' : ''}`} />
                             <span>{commentLikes > 0 ? commentLikes : 'إعجاب'}</span>
@@ -868,7 +989,13 @@ function PostCardComponent({
                                 />
                               </Link>
                               <div className="flex-1 min-w-0">
-                                <div className="bg-white/[0.03] border border-white/[0.05] rounded-2xl rounded-tr-sm px-3.5 py-2">
+                                <div
+                                  id={`comment-box-${reply.id}`}
+                                  className={`border rounded-2xl rounded-tr-sm px-3.5 py-2 transition-all duration-300 ${highlightedCommentId === reply.id
+                                    ? 'ring-2 ring-white bg-white/20 shadow-[0_0_20px_rgba(255,255,255,0.4)] scale-[1.01]'
+                                    : 'bg-white/[0.03] border-white/[0.05]'
+                                    }`}
+                                >
                                   <div className="flex items-center gap-1.5 mb-0.5">
                                     <Link href={`/profile/${reply.author?.username || 'player'}`} className="font-bold text-[12px] text-white hover:underline truncate">
                                       {reply.author?.username || reply.author?.full_name || 'لاعب'}
@@ -878,7 +1005,9 @@ function PostCardComponent({
                                       {new Date(reply.created_at).toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit' })}
                                     </span>
                                   </div>
-                                  <p className="text-[12px] text-zinc-300 leading-relaxed break-words">{reply.content}</p>
+                                  <p className="text-[12px] text-zinc-300 leading-relaxed break-words">
+                                    {renderCommentContent(reply.content, (u) => handleMentionClick(u, comment, reply))}
+                                  </p>
                                 </div>
 
                                 {/* Reply Action Bar (Like & Secondary Reply) */}
@@ -886,16 +1015,15 @@ function PostCardComponent({
                                   <button
                                     type="button"
                                     onClick={() => handleToggleCommentLike(reply.id, reply.likes_count)}
-                                    className={`flex items-center gap-1 hover:text-white transition cursor-pointer ${
-                                      isReplyLiked ? 'text-white font-black' : ''
-                                    }`}
+                                    className={`flex items-center gap-1 hover:text-white transition cursor-pointer ${isReplyLiked ? 'text-white font-black' : ''
+                                      }`}
                                   >
                                     <Heart className={`w-3 h-3 ${isReplyLiked ? 'fill-white text-white' : ''}`} />
                                     <span>{replyLikes > 0 ? replyLikes : 'إعجاب'}</span>
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => handleStartReply(comment)}
+                                    onClick={() => handleStartReply(comment, reply)}
                                     className="flex items-center gap-1 hover:text-white transition cursor-pointer"
                                   >
                                     <CornerDownLeft className="w-3 h-3" />
@@ -919,12 +1047,27 @@ function PostCardComponent({
             <div className="mt-3 flex items-center justify-between px-3 py-1.5 rounded-lg bg-white/10 border border-white/15 text-xs text-zinc-200">
               <span className="flex items-center gap-1.5 font-bold">
                 <CornerDownLeft className="w-3.5 h-3.5 text-white" />
-                <span>الرد على: @{replyingTo.authorName}</span>
+                <span>
+                  {replyingTo.isSubReply ? (
+                    <>
+                      الرد على رد: <span className="text-white underline">@{replyingTo.authorName}</span>
+                    </>
+                  ) : (
+                    <>
+                      الرد على: <span className="text-white underline">@{replyingTo.authorName}</span>
+                    </>
+                  )}
+                </span>
               </span>
               <button
                 type="button"
-                onClick={() => setReplyingTo(null)}
-                className="text-zinc-400 hover:text-white transition p-0.5 rounded-full hover:bg-white/10"
+                onClick={() => {
+                  if (replyingTo.isSubReply && newComment.startsWith(`@${replyingTo.authorName}`)) {
+                    setNewComment(newComment.replace(new RegExp(`^@${replyingTo.authorName}\\s*`), ''));
+                  }
+                  setReplyingTo(null);
+                }}
+                className="text-zinc-400 hover:text-white transition p-0.5 rounded-full hover:bg-white/10 cursor-pointer"
                 title="إلغاء الرد"
               >
                 <X className="w-3.5 h-3.5" />
@@ -935,8 +1078,8 @@ function PostCardComponent({
           {/* Comment / Reply Input Form */}
           <form onSubmit={handleAddComment} className="mt-3 flex items-center gap-3">
             <div className="w-8 h-8 rounded-full overflow-hidden border border-white/10 bg-[#141416] shrink-0 shadow-sm">
-              <img 
-                src={resolveUserAvatar(currentUser)} 
+              <img
+                src={resolveUserAvatar(currentUser)}
                 alt="My Avatar"
                 loading="lazy"
                 decoding="async"

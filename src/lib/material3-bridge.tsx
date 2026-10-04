@@ -117,6 +117,7 @@ export const ChevronRight = createMaterialBridgeIcon('chevron_right', false, '')
 export const Clock = createMaterialBridgeIcon('schedule', false, '');
 export const Coins = createMaterialBridgeIcon('monetization_on', false, '');
 export const Copy = createMaterialBridgeIcon('content_copy', false, '');
+export const CornerDownLeft = createMaterialBridgeIcon('reply', false, '');
 export const Crown = createMaterialBridgeIcon('crown', true, '');
 export const Edit2 = createMaterialBridgeIcon('edit', false, '');
 export const Edit3 = createMaterialBridgeIcon('edit', false, '');
@@ -234,6 +235,7 @@ const iconCache: Record<string, LucideIcon> = {
   Clock,
   Coins,
   Copy,
+  CornerDownLeft,
   Crown,
   Edit2,
   Edit3,

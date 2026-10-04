@@ -153,7 +153,7 @@ function HomeContent() {
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:h-full lg:min-h-0">
       <div 
         ref={postsContainerRef}
-        className="lg:col-span-8 space-y-4 lg:h-full lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain no-scrollbar pb-6"
+        className="lg:col-span-8 xl:col-span-9 space-y-4 lg:h-full lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain no-scrollbar pb-6"
       >
         <PullToRefresh
           onRefresh={handleRefreshFeed}
@@ -249,7 +249,7 @@ function HomeContent() {
         </PullToRefresh>
       </div>
 
-      <div className="lg:col-span-4 lg:h-full lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain no-scrollbar space-y-4 pb-6">
+      <div className="lg:col-span-4 xl:col-span-3 lg:h-full lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain no-scrollbar space-y-4 pb-6">
         {/* eSponsor Vault Widget */}
         <SponsorVaultWidget />
 
